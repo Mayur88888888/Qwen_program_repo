@@ -1,0 +1,3156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD Pro - Advanced CAD Interface</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --bg-hover: #30363d;
+            --accent-primary: #58a6ff;
+            --accent-secondary: #3fb950;
+            --accent-warning: #d29922;
+            --accent-danger: #f85149;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --border-color: #30363d;
+            --panel-bg: rgba(22, 27, 34, 0.98);
+            --toolbar-bg: rgba(13, 17, 23, 0.98);
+            --success: #3fb950;
+            --warning: #d29922;
+            --error: #f85149;
+            --info: #58a6ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* Menu Bar */
+        .menu-bar {
+            background: var(--toolbar-bg);
+            padding: 0.25rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1000;
+        }
+
+        .menu-item {
+            position: relative;
+            cursor: pointer;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            transition: all 0.15s ease;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .menu-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            min-width: 220px;
+            display: none;
+            flex-direction: column;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            z-index: 1001;
+            backdrop-filter: blur(8px);
+        }
+
+        .menu-item:hover .menu-dropdown {
+            display: flex;
+        }
+
+        .dropdown-item {
+            padding: 0.6rem 1rem;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            gap: 0.75rem;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .dropdown-item .shortcut {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+
+        .dropdown-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .dropdown-separator {
+            height: 1px;
+            background: var(--border-color);
+            margin: 0.4rem 0;
+        }
+
+        .dropdown-header {
+            padding: 0.5rem 1rem;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        /* Main Toolbar */
+        .main-toolbar {
+            background: var(--toolbar-bg);
+            padding: 0.4rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 0.2rem;
+            padding: 0 0.4rem;
+            border-right: 1px solid var(--border-color);
+            align-items: center;
+        }
+
+        .tool-group:last-child {
+            border-right: none;
+        }
+
+        .tool-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            font-size: 1rem;
+            position: relative;
+        }
+
+        .tool-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-color);
+        }
+
+        .tool-btn.active {
+            background: rgba(88, 166, 255, 0.15);
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        .tool-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .tool-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            z-index: 100;
+        }
+
+        .tool-icon {
+            font-size: 1.1rem;
+        }
+
+        .tool-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: var(--accent-danger);
+            color: white;
+            font-size: 0.6rem;
+            padding: 1px 4px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        /* Workspace */
+        .workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Left Panel - Feature Tree */
+        .left-panel {
+            width: 260px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            min-width: 200px;
+            max-width: 400px;
+            resize: horizontal;
+            overflow: auto;
+        }
+
+        .panel-header {
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-tabs {
+            display: flex;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-tab {
+            flex: 1;
+            padding: 0.5rem;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.75rem;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s ease;
+            color: var(--text-secondary);
+        }
+
+        .panel-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+
+        .panel-tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .feature-tree {
+            list-style: none;
+        }
+
+        .tree-item {
+            padding: 0.4rem 0.6rem;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.15s ease;
+            font-size: 0.8rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .tree-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .tree-item.selected {
+            background: rgba(88, 166, 255, 0.2);
+            border: 1px solid var(--accent-primary);
+        }
+
+        .tree-item.toggle {
+            cursor: pointer;
+        }
+
+        .tree-children {
+            margin-left: 1.2rem;
+            border-left: 1px solid var(--border-color);
+            padding-left: 0.5rem;
+        }
+
+        .tree-icon {
+            width: 16px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .tree-checkbox {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        /* Viewport */
+        .viewport-container {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+            overflow: hidden;
+        }
+
+        #cad-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .viewport-overlay {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+
+        .view-cube {
+            width: 90px;
+            height: 90px;
+            background: rgba(33, 38, 45, 0.9);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: grid;
+            grid-template-areas:
+                ". top ."
+                "left center right"
+                ". bottom .";
+            gap: 2px;
+            padding: 6px;
+            pointer-events: auto;
+        }
+
+        .view-face {
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .view-face:hover {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .view-face.center { grid-area: center; }
+        .view-face.top { grid-area: top; }
+        .view-face.bottom { grid-area: bottom; }
+        .view-face.left { grid-area: left; }
+        .view-face.right { grid-area: right; }
+
+        .nav-tools {
+            display: flex;
+            gap: 0.35rem;
+            pointer-events: auto;
+        }
+
+        .nav-btn {
+            width: 28px;
+            height: 28px;
+            background: rgba(33, 38, 45, 0.9);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            transition: all 0.15s ease;
+        }
+
+        .nav-btn:hover {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
+        /* Right Panel - Properties */
+        .right-panel {
+            width: 300px;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            min-width: 250px;
+            max-width: 450px;
+            resize: horizontal;
+            overflow: auto;
+        }
+
+        .properties-section {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .section-title {
+            padding: 0.6rem 1rem;
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .section-title:hover {
+            background: var(--bg-hover);
+        }
+
+        .section-content {
+            padding: 0.75rem 1rem;
+        }
+
+        .property-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+            gap: 0.75rem;
+        }
+
+        .property-label {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .property-input {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 0.35rem 0.5rem;
+            color: var(--text-primary);
+            width: 100px;
+            font-size: 0.8rem;
+            font-family: 'Consolas', monospace;
+        }
+
+        .property-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .property-input.full-width {
+            width: 100%;
+        }
+
+        .color-picker {
+            width: 30px;
+            height: 30px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 2px;
+        }
+
+        .slider-control {
+            width: 100%;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-control::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Bottom Panel - Command Line */
+        .bottom-panel {
+            background: var(--panel-bg);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .command-tabs {
+            display: flex;
+            background: var(--bg-tertiary);
+            padding: 0 0.5rem;
+        }
+
+        .command-tab {
+            padding: 0.4rem 0.75rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
+            transition: all 0.15s ease;
+        }
+
+        .command-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .command-tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+        }
+
+        .command-line {
+            display: flex;
+            align-items: center;
+            padding: 0.4rem 0.75rem;
+            gap: 0.5rem;
+            background: var(--bg-primary);
+        }
+
+        .command-prompt {
+            color: var(--accent-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .command-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            padding: 0.25rem;
+        }
+
+        .command-input:focus {
+            outline: none;
+        }
+
+        .command-history {
+            max-height: 120px;
+            overflow-y: auto;
+            padding: 0.5rem 0.75rem;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-primary);
+        }
+
+        .command-entry {
+            padding: 0.2rem 0;
+            color: var(--text-secondary);
+        }
+
+        .command-entry.success { color: var(--success); }
+        .command-entry.error { color: var(--error); }
+        .command-entry.warning { color: var(--warning); }
+        .command-entry.info { color: var(--info); }
+
+        /* Status Bar */
+        .status-bar {
+            background: var(--toolbar-bg);
+            padding: 0.3rem 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .status-section {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .coordinate-display {
+            font-family: 'Consolas', monospace;
+            color: var(--accent-primary);
+            font-size: 0.8rem;
+        }
+
+        .toggle-btn {
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            transition: all 0.15s ease;
+            border: 1px solid transparent;
+        }
+
+        .toggle-btn.active {
+            background: rgba(63, 185, 80, 0.2);
+            color: var(--success);
+            border-color: var(--success);
+        }
+
+        .toggle-btn:hover {
+            background: var(--bg-hover);
+        }
+
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            min-width: 180px;
+            display: none;
+            flex-direction: column;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            z-index: 2000;
+            backdrop-filter: blur(8px);
+        }
+
+        .context-menu.visible {
+            display: flex;
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.visible {
+            display: flex;
+        }
+
+        .modal-dialog {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            min-width: 400px;
+            max-width: 600px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            padding: 1rem 1.25rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1.25rem;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .btn {
+            padding: 0.5rem 1.25rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.15s ease;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #409eff;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+        }
+
+        .btn-danger {
+            background: var(--accent-danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da3633;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--bg-hover);
+        }
+
+        /* Grid Info */
+        .grid-info {
+            position: absolute;
+            bottom: 0.75rem;
+            left: 0.75rem;
+            background: rgba(33, 38, 45, 0.9);
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Selection Info */
+        .selection-info {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            background: rgba(33, 38, 45, 0.9);
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Snap Indicator */
+        .snap-indicator {
+            position: absolute;
+            background: var(--accent-secondary);
+            color: white;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            pointer-events: none;
+            display: none;
+            font-weight: 600;
+        }
+
+        /* Measurement Display */
+        .measurement-display {
+            position: absolute;
+            background: rgba(88, 166, 255, 0.95);
+            color: white;
+            padding: 0.4rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            pointer-events: none;
+            display: none;
+            font-family: 'Consolas', monospace;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--bg-tertiary);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-primary);
+            transition: width 0.3s ease;
+        }
+
+        /* Quick Access Toolbar */
+        .quick-access {
+            display: flex;
+            gap: 0.2rem;
+            padding-right: 0.5rem;
+            border-right: 1px solid var(--border-color);
+            margin-right: 0.5rem;
+        }
+
+        .quick-btn {
+            width: 26px;
+            height: 26px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            transition: all 0.15s ease;
+        }
+
+        .quick-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* Ribbon Tabs */
+        .ribbon-container {
+            background: var(--toolbar-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .ribbon-tabs {
+            display: flex;
+            padding: 0 0.75rem;
+            gap: 0.25rem;
+        }
+
+        .ribbon-tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
+            transition: all 0.15s ease;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .ribbon-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+
+        .ribbon-tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .ribbon-content {
+            padding: 0.4rem 0.75rem;
+            display: none;
+        }
+
+        .ribbon-content.active {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .ribbon-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-right: 1px solid var(--border-color);
+            gap: 0.25rem;
+        }
+
+        .ribbon-panel:last-child {
+            border-right: none;
+        }
+
+        .ribbon-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-top: 0.2rem;
+        }
+
+        .ribbon-row {
+            display: flex;
+            gap: 0.2rem;
+        }
+
+        /* Notification Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 3rem;
+            right: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 4000;
+        }
+
+        .toast {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.8rem;
+            animation: slideIn 0.3s ease;
+            max-width: 350px;
+        }
+
+        .toast.success { border-left: 3px solid var(--success); }
+        .toast.error { border-left: 3px solid var(--error); }
+        .toast.warning { border-left: 3px solid var(--warning); }
+        .toast.info { border-left: 3px solid var(--info); }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Search Box */
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            margin-left: auto;
+            margin-right: 0.5rem;
+        }
+
+        .search-input {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            padding: 0.2rem;
+            width: 180px;
+        }
+
+        .search-input:focus {
+            outline: none;
+        }
+
+        .search-icon {
+            color: var(--text-secondary);
+            margin-right: 0.3rem;
+        }
+
+        /* Layer List */
+        .layer-item {
+            display: flex;
+            align-items: center;
+            padding: 0.35rem 0.5rem;
+            gap: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            font-size: 0.8rem;
+        }
+
+        .layer-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .layer-item.active {
+            background: rgba(88, 166, 255, 0.15);
+        }
+
+        .layer-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border: 1px solid var(--border-color);
+        }
+
+        .layer-name {
+            flex: 1;
+        }
+
+        .layer-visibility {
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .layer-visibility:hover {
+            opacity: 1;
+        }
+
+        /* Constraint Badge */
+        .constraint-badge {
+            display: inline-block;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-right: 0.25rem;
+        }
+
+        .constraint-badge.coincident { background: rgba(88, 166, 255, 0.2); color: var(--accent-primary); }
+        .constraint-badge.parallel { background: rgba(63, 185, 80, 0.2); color: var(--success); }
+        .constraint-badge.perpendicular { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+        .constraint-badge.tangent { background: rgba(248, 81, 73, 0.2); color: var(--accent-danger); }
+
+        /* Preview Overlay */
+        .preview-overlay {
+            position: absolute;
+            pointer-events: none;
+            z-index: 500;
+        }
+
+        /* Ruler */
+        .ruler-horizontal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .ruler-vertical {
+            position: absolute;
+            top: 20px;
+            bottom: 0;
+            left: 0;
+            width: 20px;
+            background: var(--bg-tertiary);
+            border-right: 1px solid var(--border-color);
+        }
+
+        /* Mini Map */
+        .mini-map {
+            position: absolute;
+            bottom: 0.75rem;
+            right: 0.75rem;
+            width: 150px;
+            height: 100px;
+            background: rgba(33, 38, 45, 0.9);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .mini-map-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .mini-map-viewport {
+            position: absolute;
+            border: 1px solid var(--accent-primary);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        /* Tool Options Palette */
+        .tool-options {
+            position: absolute;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.75rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            z-index: 600;
+            display: none;
+            min-width: 200px;
+        }
+
+        .tool-options.visible {
+            display: block;
+        }
+
+        .tool-option-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .tool-option-row:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Splitter Handle */
+        .splitter-handle {
+            width: 4px;
+            background: var(--bg-tertiary);
+            cursor: col-resize;
+            transition: background 0.15s ease;
+        }
+
+        .splitter-handle:hover {
+            background: var(--accent-primary);
+        }
+
+        /* Command Palette */
+        .command-palette {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            max-height: 400px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+            z-index: 5000;
+            display: none;
+            flex-direction: column;
+        }
+
+        .command-palette.visible {
+            display: flex;
+        }
+
+        .command-palette-input {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .command-palette-input input {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.6rem 0.75rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .command-palette-input input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .command-palette-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .command-palette-item {
+            padding: 0.6rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .command-palette-item:hover,
+        .command-palette-item.selected {
+            background: var(--bg-hover);
+        }
+
+        .command-palette-item kbd {
+            margin-left: auto;
+            background: var(--bg-tertiary);
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Menu Bar -->
+    <header class="menu-bar">
+        <div class="quick-access">
+            <button class="quick-btn" data-tooltip="New (Ctrl+N)" onclick="app.file.new()">📄</button>
+            <button class="quick-btn" data-tooltip="Open (Ctrl+O)" onclick="app.file.open()">📁</button>
+            <button class="quick-btn" data-tooltip="Save (Ctrl+S)" onclick="app.file.save()">💾</button>
+            <button class="quick-btn" data-tooltip="Undo (Ctrl+Z)" onclick="app.edit.undo()">↩️</button>
+            <button class="quick-btn" data-tooltip="Redo (Ctrl+Y)" onclick="app.edit.redo()">↪️</button>
+        </div>
+
+        <div class="menu-item">
+            File
+            <div class="menu-dropdown">
+                <div class="dropdown-item" onclick="app.file.new()">
+                    <span>📄 New</span><span class="shortcut">Ctrl+N</span>
+                </div>
+                <div class="dropdown-item" onclick="app.file.open()">
+                    <span>📁 Open</span><span class="shortcut">Ctrl+O</span>
+                </div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.file.save()">
+                    <span>💾 Save</span><span class="shortcut">Ctrl+S</span>
+                </div>
+                <div class="dropdown-item" onclick="app.file.saveAs()">
+                    <span>💾 Save As</span><span class="shortcut">Ctrl+Shift+S</span>
+                </div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.file.import()">
+                    <span>📥 Import</span><span class="shortcut">Ctrl+I</span>
+                </div>
+                <div class="dropdown-item" onclick="app.file.export('STEP')">
+                    <span>📤 Export STEP</span>
+                </div>
+                <div class="dropdown-item" onclick="app.file.export('STL')">
+                    <span>📤 Export STL</span>
+                </div>
+                <div class="dropdown-item" onclick="app.file.export('DXF')">
+                    <span>📤 Export DXF</span>
+                </div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.file.print()">
+                    <span>🖨️ Print</span><span class="shortcut">Ctrl+P</span>
+                </div>
+                <div class="dropdown-item" onclick="app.file.close()">
+                    <span>❌ Close</span><span class="shortcut">Ctrl+W</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            Edit
+            <div class="menu-dropdown">
+                <div class="dropdown-item" onclick="app.edit.undo()">
+                    <span>↩️ Undo</span><span class="shortcut">Ctrl+Z</span>
+                </div>
+                <div class="dropdown-item" onclick="app.edit.redo()">
+                    <span>↪️ Redo</span><span class="shortcut">Ctrl+Y</span>
+                </div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.edit.cut()">
+                    <span>✂️ Cut</span><span class="shortcut">Ctrl+X</span>
+                </div>
+                <div class="dropdown-item" onclick="app.edit.copy()">
+                    <span>📋 Copy</span><span class="shortcut">Ctrl+C</span>
+                </div>
+                <div class="dropdown-item" onclick="app.edit.paste()">
+                    <span>📋 Paste</span><span class="shortcut">Ctrl+V</span>
+                </div>
+                <div class="dropdown-item" onclick="app.edit.duplicate()">
+                    <span>📑 Duplicate</span><span class="shortcut">Ctrl+D</span>
+                </div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.edit.delete()">
+                    <span>🗑️ Delete</span><span class="shortcut">Del</span>
+                </div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.edit.selectAll()">
+                    <span>✅ Select All</span><span class="shortcut">Ctrl+A</span>
+                </div>
+                <div class="dropdown-item" onclick="app.edit.deselectAll()">
+                    <span>❌ Deselect All</span><span class="shortcut">Esc</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            View
+            <div class="menu-dropdown">
+                <div class="dropdown-header">Standard Views</div>
+                <div class="dropdown-item" onclick="app.view.set('front')"><span>Front</span></div>
+                <div class="dropdown-item" onclick="app.view.set('top')"><span>Top</span></div>
+                <div class="dropdown-item" onclick="app.view.set('right')"><span>Right</span></div>
+                <div class="dropdown-item" onclick="app.view.set('left')"><span>Left</span></div>
+                <div class="dropdown-item" onclick="app.view.set('bottom')"><span>Bottom</span></div>
+                <div class="dropdown-item" onclick="app.view.set('isometric')"><span>Isometric</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.view.zoomExtents()"><span>Zoom Extents</span><span class="shortcut">Ctrl+E</span></div>
+                <div class="dropdown-item" onclick="app.view.zoomIn()"><span>Zoom In</span></div>
+                <div class="dropdown-item" onclick="app.view.zoomOut()"><span>Zoom Out</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.view.toggleGrid()"><span>Toggle Grid</span><span class="shortcut">G</span></div>
+                <div class="dropdown-item" onclick="app.view.toggleSnap()"><span>Toggle Snap</span><span class="shortcut">S</span></div>
+                <div class="dropdown-item" onclick="app.view.toggleOrtho()"><span>Toggle Ortho</span><span class="shortcut">F8</span></div>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            Draw
+            <div class="menu-dropdown">
+                <div class="dropdown-header">2D Primitives</div>
+                <div class="dropdown-item" onclick="app.draw.line()"><span>Line</span><span class="shortcut">L</span></div>
+                <div class="dropdown-item" onclick="app.draw.circle()"><span>Circle</span><span class="shortcut">C</span></div>
+                <div class="dropdown-item" onclick="app.draw.arc()"><span>Arc</span><span class="shortcut">A</span></div>
+                <div class="dropdown-item" onclick="app.draw.rectangle()"><span>Rectangle</span><span class="shortcut">R</span></div>
+                <div class="dropdown-item" onclick="app.draw.polygon()"><span>Polygon</span></div>
+                <div class="dropdown-item" onclick="app.draw.ellipse()"><span>Ellipse</span></div>
+                <div class="dropdown-item" onclick="app.draw.spline()"><span>Spline</span></div>
+                <div class="dropdown-item" onclick="app.draw.polyline()"><span>Polyline</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-header">Construction</div>
+                <div class="dropdown-item" onclick="app.draw.constructionLine()"><span>Construction Line</span></div>
+                <div class="dropdown-item" onclick="app.draw.centerline()"><span>Centerline</span></div>
+                <div class="dropdown-item" onclick="app.draw.point()"><span>Point</span></div>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            Modify
+            <div class="menu-dropdown">
+                <div class="dropdown-item" onclick="app.modify.move()"><span>Move</span><span class="shortcut">M</span></div>
+                <div class="dropdown-item" onclick="app.modify.copy()"><span>Copy</span><span class="shortcut">CO</span></div>
+                <div class="dropdown-item" onclick="app.modify.rotate()"><span>Rotate</span><span class="shortcut">RO</span></div>
+                <div class="dropdown-item" onclick="app.modify.scale()"><span>Scale</span><span class="shortcut">SC</span></div>
+                <div class="dropdown-item" onclick="app.modify.mirror()"><span>Mirror</span></div>
+                <div class="dropdown-item" onclick="app.modify.offset()"><span>Offset</span><span class="shortcut">O</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.modify.trim()"><span>Trim</span><span class="shortcut">TR</span></div>
+                <div class="dropdown-item" onclick="app.modify.extend()"><span>Extend</span><span class="shortcut">EX</span></div>
+                <div class="dropdown-item" onclick="app.modify.fillet()"><span>Fillet</span><span class="shortcut">F</span></div>
+                <div class="dropdown-item" onclick="app.modify.chamfer()"><span>Chamfer</span><span class="shortcut">CHA</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.modify.array()"><span>Array</span></div>
+                <div class="dropdown-item" onclick="app.modify.pattern()"><span>Pattern</span></div>
+                <div class="dropdown-item" onclick="app.modify.explode()"><span>Explode</span></div>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            3D Model
+            <div class="menu-dropdown">
+                <div class="dropdown-header">Primitives</div>
+                <div class="dropdown-item" onclick="app.model3d.box()"><span>Box</span></div>
+                <div class="dropdown-item" onclick="app.model3d.sphere()"><span>Sphere</span></div>
+                <div class="dropdown-item" onclick="app.model3d.cylinder()"><span>Cylinder</span></div>
+                <div class="dropdown-item" onclick="app.model3d.cone()"><span>Cone</span></div>
+                <div class="dropdown-item" onclick="app.model3d.torus()"><span>Torus</span></div>
+                <div class="dropdown-item" onclick="app.model3d.wedge()"><span>Wedge</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-header">Operations</div>
+                <div class="dropdown-item" onclick="app.model3d.extrude()"><span>Extrude</span></div>
+                <div class="dropdown-item" onclick="app.model3d.revolve()"><span>Revolve</span></div>
+                <div class="dropdown-item" onclick="app.model3d.sweep()"><span>Sweep</span></div>
+                <div class="dropdown-item" onclick="app.model3d.loft()"><span>Loft</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-header">Boolean</div>
+                <div class="dropdown-item" onclick="app.model3d.union()"><span>Union</span></div>
+                <div class="dropdown-item" onclick="app.model3d.difference()"><span>Difference</span></div>
+                <div class="dropdown-item" onclick="app.model3d.intersect()"><span>Intersect</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-header">Features</div>
+                <div class="dropdown-item" onclick="app.model3d.shell()"><span>Shell</span></div>
+                <div class="dropdown-item" onclick="app.model3d.fillet3d()"><span>3D Fillet</span></div>
+                <div class="dropdown-item" onclick="app.model3d.chamfer3d()"><span>3D Chamfer</span></div>
+                <div class="dropdown-item" onclick="app.model3d.draft()"><span>Draft</span></div>
+                <div class="dropdown-item" onclick="app.model3d.hole()"><span>Hole</span></div>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            Constraints
+            <div class="menu-dropdown">
+                <div class="dropdown-header">Geometric</div>
+                <div class="dropdown-item" onclick="app.constraints.coincident()"><span>Coincident</span></div>
+                <div class="dropdown-item" onclick="app.constraints.collinear()"><span>Collinear</span></div>
+                <div class="dropdown-item" onclick="app.constraints.parallel()"><span>Parallel</span></div>
+                <div class="dropdown-item" onclick="app.constraints.perpendicular()"><span>Perpendicular</span></div>
+                <div class="dropdown-item" onclick="app.constraints.tangent()"><span>Tangent</span></div>
+                <div class="dropdown-item" onclick="app.constraints.concentric()"><span>Concentric</span></div>
+                <div class="dropdown-item" onclick="app.constraints.symmetric()"><span>Symmetric</span></div>
+                <div class="dropdown-item" onclick="app.constraints.horizontal()"><span>Horizontal</span></div>
+                <div class="dropdown-item" onclick="app.constraints.vertical()"><span>Vertical</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-header">Dimensional</div>
+                <div class="dropdown-item" onclick="app.constraints.dimension()"><span>Dimension</span><span class="shortcut">D</span></div>
+                <div class="dropdown-item" onclick="app.constraints.angle()"><span>Angle</span></div>
+                <div class="dropdown-item" onclick="app.constraints.radius()"><span>Radius</span></div>
+                <div class="dropdown-item" onclick="app.constraints.diameter()"><span>Diameter</span></div>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            Measure
+            <div class="menu-dropdown">
+                <div class="dropdown-item" onclick="app.measure.distance()"><span>Distance</span></div>
+                <div class="dropdown-item" onclick="app.measure.angle()"><span>Angle</span></div>
+                <div class="dropdown-item" onclick="app.measure.radius()"><span>Radius</span></div>
+                <div class="dropdown-item" onclick="app.measure.diameter()"><span>Diameter</span></div>
+                <div class="dropdown-item" onclick="app.measure.area()"><span>Area</span></div>
+                <div class="dropdown-item" onclick="app.measure.volume()"><span>Volume</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.measure.massProperties()"><span>Mass Properties</span></div>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            Tools
+            <div class="menu-dropdown">
+                <div class="dropdown-item" onclick="app.tools.options()"><span>⚙️ Options</span></div>
+                <div class="dropdown-item" onclick="app.tools.layerManager()"><span>Layer Manager</span></div>
+                <div class="dropdown-item" onclick="app.tools.blockEditor()"><span>Block Editor</span></div>
+                <div class="dropdown-item" onclick="app.tools.materialBrowser()"><span>Material Browser</span></div>
+                <div class="dropdown-item" onclick="app.tools.appearanceEditor()"><span>Appearance Editor</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.tools.runScript()"><span>Run Script</span></div>
+                <div class="dropdown-item" onclick="app.tools.macroRecorder()"><span>Macro Recorder</span></div>
+            </div>
+        </div>
+
+        <div class="menu-item">
+            Help
+            <div class="menu-dropdown">
+                <div class="dropdown-item" onclick="app.help.showHelp()"><span>Help Contents</span><span class="shortcut">F1</span></div>
+                <div class="dropdown-item" onclick="app.help.shortcuts()"><span>Keyboard Shortcuts</span></div>
+                <div class="dropdown-item" onclick="app.help.tutorials()"><span>Tutorials</span></div>
+                <div class="dropdown-separator"></div>
+                <div class="dropdown-item" onclick="app.help.checkUpdates()"><span>Check for Updates</span></div>
+                <div class="dropdown-item" onclick="app.help.about()"><span>About CAD Pro</span></div>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" placeholder="Search commands..." id="commandSearch" onkeydown="app.handleSearch(event)">
+        </div>
+    </header>
+
+    <!-- Ribbon Toolbar -->
+    <div class="ribbon-container">
+        <div class="ribbon-tabs">
+            <div class="ribbon-tab active" onclick="app.ribbon.switch('home')">Home</div>
+            <div class="ribbon-tab" onclick="app.ribbon.switch('draw')">Draw</div>
+            <div class="ribbon-tab" onclick="app.ribbon.switch('modify')">Modify</div>
+            <div class="ribbon-tab" onclick="app.ribbon.switch('3d')">3D</div>
+            <div class="ribbon-tab" onclick="app.ribbon.switch('annotate')">Annotate</div>
+            <div class="ribbon-tab" onclick="app.ribbon.switch('parametric')">Parametric</div>
+        </div>
+
+        <div class="ribbon-content active" id="ribbon-home">
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.file.new()" data-tooltip="New">📄</button>
+                    <button class="tool-btn" onclick="app.file.open()" data-tooltip="Open">📁</button>
+                    <button class="tool-btn" onclick="app.file.save()" data-tooltip="Save">💾</button>
+                </div>
+                <div class="ribbon-label">File</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.edit.undo()" data-tooltip="Undo">↩️</button>
+                    <button class="tool-btn" onclick="app.edit.redo()" data-tooltip="Redo">↪️</button>
+                </div>
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.edit.copy()" data-tooltip="Copy">📋</button>
+                    <button class="tool-btn" onclick="app.edit.paste()" data-tooltip="Paste">📋</button>
+                </div>
+                <div class="ribbon-label">Clipboard</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.draw.line()" data-tooltip="Line">📏</button>
+                    <button class="tool-btn" onclick="app.draw.circle()" data-tooltip="Circle">⭕</button>
+                    <button class="tool-btn" onclick="app.draw.rectangle()" data-tooltip="Rectangle">⬜</button>
+                </div>
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.modify.move()" data-tooltip="Move">➡️</button>
+                    <button class="tool-btn" onclick="app.modify.copy()" data-tooltip="Copy">📑</button>
+                    <button class="tool-btn" onclick="app.modify.rotate()" data-tooltip="Rotate">🔄</button>
+                </div>
+                <div class="ribbon-label">Draw & Modify</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.view.toggleGrid()" data-tooltip="Grid">▦</button>
+                    <button class="tool-btn" onclick="app.view.toggleSnap()" data-tooltip="Snap">🧲</button>
+                    <button class="tool-btn" onclick="app.view.toggleOrtho()" data-tooltip="Ortho">⟂</button>
+                </div>
+                <div class="ribbon-label">Settings</div>
+            </div>
+        </div>
+
+        <div class="ribbon-content" id="ribbon-draw">
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.draw.line()" data-tooltip="Line">📏</button>
+                    <button class="tool-btn" onclick="app.draw.polyline()" data-tooltip="Polyline">〰️</button>
+                </div>
+                <div class="ribbon-label">Lines</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.draw.circle()" data-tooltip="Circle">⭕</button>
+                    <button class="tool-btn" onclick="app.draw.arc()" data-tooltip="Arc">◡</button>
+                    <button class="tool-btn" onclick="app.draw.ellipse()" data-tooltip="Ellipse">⬭</button>
+                </div>
+                <div class="ribbon-label">Curves</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.draw.rectangle()" data-tooltip="Rectangle">⬜</button>
+                    <button class="tool-btn" onclick="app.draw.polygon()" data-tooltip="Polygon">⬟</button>
+                    <button class="tool-btn" onclick="app.draw.spline()" data-tooltip="Spline">〜</button>
+                </div>
+                <div class="ribbon-label">Shapes</div>
+            </div>
+        </div>
+
+        <div class="ribbon-content" id="ribbon-modify">
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.modify.move()" data-tooltip="Move">➡️</button>
+                    <button class="tool-btn" onclick="app.modify.copy()" data-tooltip="Copy">📑</button>
+                    <button class="tool-btn" onclick="app.modify.rotate()" data-tooltip="Rotate">🔄</button>
+                </div>
+                <div class="ribbon-label">Transform</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.modify.trim()" data-tooltip="Trim">✂️</button>
+                    <button class="tool-btn" onclick="app.modify.extend()" data-tooltip="Extend">↗️</button>
+                </div>
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.modify.fillet()" data-tooltip="Fillet">⌒</button>
+                    <button class="tool-btn" onclick="app.modify.chamfer()" data-tooltip="Chamfer">∠</button>
+                </div>
+                <div class="ribbon-label">Edit</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.modify.offset()" data-tooltip="Offset">⇌</button>
+                    <button class="tool-btn" onclick="app.modify.mirror()" data-tooltip="Mirror">🪞</button>
+                    <button class="tool-btn" onclick="app.modify.array()" data-tooltip="Array">⊞</button>
+                </div>
+                <div class="ribbon-label">Pattern</div>
+            </div>
+        </div>
+
+        <div class="ribbon-content" id="ribbon-3d">
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.model3d.box()" data-tooltip="Box">📦</button>
+                    <button class="tool-btn" onclick="app.model3d.sphere()" data-tooltip="Sphere">🔵</button>
+                    <button class="tool-btn" onclick="app.model3d.cylinder()" data-tooltip="Cylinder">🛢️</button>
+                </div>
+                <div class="ribbon-label">Primitives</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.model3d.extrude()" data-tooltip="Extrude">⬆️</button>
+                    <button class="tool-btn" onclick="app.model3d.revolve()" data-tooltip="Revolve">🔃</button>
+                    <button class="tool-btn" onclick="app.model3d.sweep()" data-tooltip="Sweep">〰️</button>
+                </div>
+                <div class="ribbon-label">Create</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.model3d.union()" data-tooltip="Union">⊔</button>
+                    <button class="tool-btn" onclick="app.model3d.difference()" data-tooltip="Difference">⊓</button>
+                    <button class="tool-btn" onclick="app.model3d.intersect()" data-tooltip="Intersect">⋂</button>
+                </div>
+                <div class="ribbon-label">Boolean</div>
+            </div>
+        </div>
+
+        <div class="ribbon-content" id="ribbon-annotate">
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.annotate.dimension()" data-tooltip="Dimension">📐</button>
+                    <button class="tool-btn" onclick="app.annotate.angle()" data-tooltip="Angle">∠</button>
+                </div>
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.annotate.radius()" data-tooltip="Radius">R</button>
+                    <button class="tool-btn" onclick="app.annotate.diameter()" data-tooltip="Diameter">⌀</button>
+                </div>
+                <div class="ribbon-label">Dimensions</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.annotate.text()" data-tooltip="Text">T</button>
+                    <button class="tool-btn" onclick="app.annotate.multilineText()" data-tooltip="MText">≡</button>
+                </div>
+                <div class="ribbon-label">Text</div>
+            </div>
+        </div>
+
+        <div class="ribbon-content" id="ribbon-parametric">
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.constraints.coincident()" data-tooltip="Coincident">⌖</button>
+                    <button class="tool-btn" onclick="app.constraints.parallel()" data-tooltip="Parallel">∥</button>
+                    <button class="tool-btn" onclick="app.constraints.perpendicular()" data-tooltip="Perpendicular">⟂</button>
+                </div>
+                <div class="ribbon-label">Geometric</div>
+            </div>
+            <div class="ribbon-panel">
+                <div class="ribbon-row">
+                    <button class="tool-btn" onclick="app.constraints.dimension()" data-tooltip="Dimension">📏</button>
+                    <button class="tool-btn" onclick="app.constraints.angle()" data-tooltip="Angle">∠</button>
+                </div>
+                <div class="ribbon-label">Dimensional</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Toolbar -->
+    <div class="main-toolbar">
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.file.new()" data-tooltip="New (Ctrl+N)">📄</button>
+            <button class="tool-btn" onclick="app.file.open()" data-tooltip="Open (Ctrl+O)">📁</button>
+            <button class="tool-btn" onclick="app.file.save()" data-tooltip="Save (Ctrl+S)">💾</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.edit.undo()" data-tooltip="Undo (Ctrl+Z)">↩️</button>
+            <button class="tool-btn" onclick="app.edit.redo()" data-tooltip="Redo (Ctrl+Y)">↪️</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.draw.line()" data-tooltip="Line (L)">📏</button>
+            <button class="tool-btn" onclick="app.draw.circle()" data-tooltip="Circle (C)">⭕</button>
+            <button class="tool-btn" onclick="app.draw.arc()" data-tooltip="Arc (A)">◡</button>
+            <button class="tool-btn" onclick="app.draw.rectangle()" data-tooltip="Rectangle (R)">⬜</button>
+            <button class="tool-btn" onclick="app.draw.polygon()" data-tooltip="Polygon">⬟</button>
+            <button class="tool-btn" onclick="app.draw.spline()" data-tooltip="Spline">〜</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.modify.move()" data-tooltip="Move (M)">➡️</button>
+            <button class="tool-btn" onclick="app.modify.copy()" data-tooltip="Copy (CO)">📑</button>
+            <button class="tool-btn" onclick="app.modify.rotate()" data-tooltip="Rotate (RO)">🔄</button>
+            <button class="tool-btn" onclick="app.modify.scale()" data-tooltip="Scale (SC)">🔍</button>
+            <button class="tool-btn" onclick="app.modify.mirror()" data-tooltip="Mirror">🪞</button>
+            <button class="tool-btn" onclick="app.modify.offset()" data-tooltip="Offset (O)">⇌</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.modify.trim()" data-tooltip="Trim (TR)">✂️</button>
+            <button class="tool-btn" onclick="app.modify.extend()" data-tooltip="Extend (EX)">↗️</button>
+            <button class="tool-btn" onclick="app.modify.fillet()" data-tooltip="Fillet (F)">⌒</button>
+            <button class="tool-btn" onclick="app.modify.chamfer()" data-tooltip="Chamfer (CHA)">∠</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.model3d.box()" data-tooltip="Box">📦</button>
+            <button class="tool-btn" onclick="app.model3d.sphere()" data-tooltip="Sphere">🔵</button>
+            <button class="tool-btn" onclick="app.model3d.cylinder()" data-tooltip="Cylinder">🛢️</button>
+            <button class="tool-btn" onclick="app.model3d.extrude()" data-tooltip="Extrude">⬆️</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.constraints.dimension()" data-tooltip="Dimension (D)">📐</button>
+            <button class="tool-btn" onclick="app.constraints.coincident()" data-tooltip="Coincident">⌖</button>
+            <button class="tool-btn" onclick="app.constraints.parallel()" data-tooltip="Parallel">∥</button>
+            <button class="tool-btn" onclick="app.constraints.perpendicular()" data-tooltip="Perpendicular">⟂</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.measure.distance()" data-tooltip="Measure Distance">📏</button>
+            <button class="tool-btn" onclick="app.measure.angle()" data-tooltip="Measure Angle">∠</button>
+            <button class="tool-btn" onclick="app.measure.area()" data-tooltip="Measure Area">⬛</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.view.set('front')" data-tooltip="Front View">🔳</button>
+            <button class="tool-btn" onclick="app.view.set('top')" data-tooltip="Top View">⬆️</button>
+            <button class="tool-btn" onclick="app.view.set('right')" data-tooltip="Right View">➡️</button>
+            <button class="tool-btn" onclick="app.view.set('isometric')" data-tooltip="Isometric View">⬢</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" id="gridBtn" onclick="app.view.toggleGrid()" data-tooltip="Grid (G)">▦</button>
+            <button class="tool-btn" id="snapBtn" onclick="app.view.toggleSnap()" data-tooltip="Snap (S)">🧲</button>
+            <button class="tool-btn" id="orthoBtn" onclick="app.view.toggleOrtho()" data-tooltip="Ortho (F8)">⟂</button>
+            <button class="tool-btn" onclick="app.view.zoomExtents()" data-tooltip="Zoom Extents (Ctrl+E)">🔍</button>
+        </div>
+
+        <div class="tool-group">
+            <button class="tool-btn" onclick="app.render.wireframe()" data-tooltip="Wireframe">⬜</button>
+            <button class="tool-btn" onclick="app.render.shaded()" data-tooltip="Shaded">◼️</button>
+            <button class="tool-btn" onclick="app.render.realistic()" data-tooltip="Realistic">🎨</button>
+        </div>
+    </div>
+
+    <!-- Workspace -->
+    <div class="workspace">
+        <!-- Left Panel -->
+        <aside class="left-panel">
+            <div class="panel-header">
+                <span>Browser</span>
+                <button class="tool-btn" style="width:24px;height:24px;font-size:0.8rem;" onclick="app.browser.refresh()" data-tooltip="Refresh">🔄</button>
+            </div>
+            <div class="panel-tabs">
+                <div class="panel-tab active" onclick="app.browser.switchTab('features')" data-tab="features">Features</div>
+                <div class="panel-tab" onclick="app.browser.switchTab('layers')" data-tab="layers">Layers</div>
+                <div class="panel-tab" onclick="app.browser.switchTab('constraints')" data-tab="constraints">Constraints</div>
+            </div>
+            
+            <div class="panel-content" id="panel-features">
+                <ul class="feature-tree" id="featureTree">
+                    <li class="tree-item toggle" onclick="app.browser.toggleItem(this)">
+                        <span class="tree-icon">▶</span>
+                        <span>📁 Sketches</span>
+                        <ul class="tree-children" style="display:none;">
+                            <li class="tree-item" data-id="sketch1">
+                                <span class="tree-icon">📐</span>
+                                <span>Sketch1</span>
+                            </li>
+                            <li class="tree-item" data-id="sketch2">
+                                <span class="tree-icon">📐</span>
+                                <span>Sketch2</span>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="tree-item toggle" onclick="app.browser.toggleItem(this)">
+                        <span class="tree-icon">▶</span>
+                        <span>📦 3D Bodies</span>
+                        <ul class="tree-children" style="display:none;">
+                            <li class="tree-item" data-id="body1">
+                                <span class="tree-icon">📦</span>
+                                <span>Body1</span>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="tree-item" data-id="origin">
+                        <span class="tree-icon">⌖</span>
+                        <span>Origin</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="panel-content" id="panel-layers" style="display:none;">
+                <div style="padding:0.5rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                    <span style="font-size:0.8rem;color:var(--text-secondary);">Layers</span>
+                    <button class="tool-btn" style="width:24px;height:24px;font-size:0.8rem;" onclick="app.layers.add()" data-tooltip="Add Layer">+</button>
+                </div>
+                <div id="layerList">
+                    <div class="layer-item active">
+                        <span class="layer-visibility">👁️</span>
+                        <div class="layer-color" style="background:#58a6ff;"></div>
+                        <span class="layer-name">Layer 0</span>
+                        <span style="color:var(--text-secondary);font-size:0.7rem;">0</span>
+                    </div>
+                    <div class="layer-item">
+                        <span class="layer-visibility">👁️</span>
+                        <div class="layer-color" style="background:#3fb950;"></div>
+                        <span class="layer-name">Dimensions</span>
+                        <span style="color:var(--text-secondary);font-size:0.7rem;">3</span>
+                    </div>
+                    <div class="layer-item">
+                        <span class="layer-visibility" style="opacity:0.3;">🚫</span>
+                        <div class="layer-color" style="background:#d29922;"></div>
+                        <span class="layer-name" style="opacity:0.5;">Construction</span>
+                        <span style="color:var(--text-secondary);font-size:0.7rem;">5</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-content" id="panel-constraints" style="display:none;">
+                <div style="padding:0.5rem;display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                    <span style="font-size:0.8rem;color:var(--text-secondary);">Constraints</span>
+                    <button class="tool-btn" style="width:24px;height:24px;font-size:0.8rem;" onclick="app.constraints.add()" data-tooltip="Add Constraint">+</button>
+                </div>
+                <div id="constraintList">
+                    <div class="tree-item">
+                        <span class="constraint-badge coincident">Coincident</span>
+                        <span style="font-size:0.75rem;color:var(--text-secondary);">Line1 endpoint = Line2 start</span>
+                    </div>
+                    <div class="tree-item">
+                        <span class="constraint-badge parallel">Parallel</span>
+                        <span style="font-size:0.75rem;color:var(--text-secondary);">Line1 ∥ Line2</span>
+                    </div>
+                    <div class="tree-item">
+                        <span class="constraint-badge perpendicular">Perpendicular</span>
+                        <span style="font-size:0.75rem;color:var(--text-secondary);">Line1 ⟂ Line3</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Viewport -->
+        <main class="viewport-container">
+            <canvas id="cad-canvas"></canvas>
+            
+            <!-- View Cube & Navigation -->
+            <div class="viewport-overlay">
+                <div class="view-cube">
+                    <div class="view-face top" onclick="app.view.set('top')">Top</div>
+                    <div class="view-face left" onclick="app.view.set('left')">Left</div>
+                    <div class="view-face center" onclick="app.view.set('isometric')">ISO</div>
+                    <div class="view-face right" onclick="app.view.set('right')">Right</div>
+                    <div class="view-face bottom" onclick="app.view.set('bottom')">Bot</div>
+                </div>
+                <div class="nav-tools">
+                    <button class="nav-btn" onclick="app.view.zoomIn()" data-tooltip="Zoom In">+</button>
+                    <button class="nav-btn" onclick="app.view.zoomOut()" data-tooltip="Zoom Out">−</button>
+                    <button class="nav-btn" onclick="app.view.zoomExtents()" data-tooltip="Zoom Extents">⊡</button>
+                </div>
+            </div>
+
+            <!-- Overlays -->
+            <div class="selection-info" id="selectionInfo">No selection</div>
+            <div class="grid-info" id="gridInfo">Grid: On | Snap: On | Ortho: Off</div>
+            <div class="snap-indicator" id="snapIndicator">END</div>
+            <div class="measurement-display" id="measurementDisplay">
+                <div>Distance: <span id="measureDistance">0.00</span></div>
+                <div>Angle: <span id="measureAngle">0°</span></div>
+            </div>
+
+            <!-- Tool Options Palette -->
+            <div class="tool-options" id="toolOptions">
+                <div style="font-weight:600;font-size:0.8rem;margin-bottom:0.5rem;">Tool Options</div>
+                <div class="tool-option-row">
+                    <span class="property-label">Line Weight:</span>
+                    <select class="property-input" style="width:100px;">
+                        <option>ByLayer</option>
+                        <option>0.25mm</option>
+                        <option>0.50mm</option>
+                        <option>0.75mm</option>
+                        <option>1.00mm</option>
+                    </select>
+                </div>
+                <div class="tool-option-row">
+                    <span class="property-label">Color:</span>
+                    <input type="color" class="color-picker" value="#58a6ff" onchange="app.updateToolColor(this.value)">
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel -->
+        <aside class="right-panel">
+            <div class="panel-header">
+                <span>Properties</span>
+                <button class="tool-btn" style="width:24px;height:24px;font-size:0.8rem;" onclick="app.properties.reset()" data-tooltip="Reset">↺</button>
+            </div>
+
+            <!-- Geometry Section -->
+            <div class="properties-section">
+                <div class="section-title" onclick="app.properties.toggle('geometry')">
+                    <span>Geometry</span>
+                    <span>▼</span>
+                </div>
+                <div class="section-content" id="geometry-section">
+                    <div class="property-row">
+                        <span class="property-label">Type</span>
+                        <span class="property-input" id="propType" style="width:auto;min-width:80px;">-</span>
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Layer</span>
+                        <select class="property-input" id="propLayer">
+                            <option>Layer 0</option>
+                            <option>Dimensions</option>
+                            <option>Construction</option>
+                        </select>
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Color</span>
+                        <input type="color" class="color-picker" id="propColor" value="#58a6ff" onchange="app.properties.updateColor(this.value)">
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Line Type</span>
+                        <select class="property-input" id="propLineType">
+                            <option>Continuous</option>
+                            <option>Dashed</option>
+                            <option>Dotted</option>
+                            <option>Dash-Dot</option>
+                        </select>
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Line Weight</span>
+                        <select class="property-input" id="propLineWeight">
+                            <option>ByLayer</option>
+                            <option>0.25 mm</option>
+                            <option>0.50 mm</option>
+                            <option>0.75 mm</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Position Section -->
+            <div class="properties-section">
+                <div class="section-title" onclick="app.properties.toggle('position')">
+                    <span>Position</span>
+                    <span>▼</span>
+                </div>
+                <div class="section-content" id="position-section">
+                    <div class="property-row">
+                        <span class="property-label">X</span>
+                        <input type="text" class="property-input" id="propX" value="0.000" onchange="app.properties.updatePosition()">
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Y</span>
+                        <input type="text" class="property-input" id="propY" value="0.000" onchange="app.properties.updatePosition()">
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Z</span>
+                        <input type="text" class="property-input" id="propZ" value="0.000" onchange="app.properties.updatePosition()">
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Rotation</span>
+                        <input type="text" class="property-input" id="propRotation" value="0°" onchange="app.properties.updateRotation()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dimensions Section -->
+            <div class="properties-section">
+                <div class="section-title" onclick="app.properties.toggle('dimensions')">
+                    <span>Dimensions</span>
+                    <span>▼</span>
+                </div>
+                <div class="section-content" id="dimensions-section">
+                    <div class="property-row">
+                        <span class="property-label">Length</span>
+                        <input type="text" class="property-input" id="propLength" value="-" onchange="app.properties.updateDimension('length', this.value)">
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Width</span>
+                        <input type="text" class="property-input" id="propWidth" value="-" onchange="app.properties.updateDimension('width', this.value)">
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Height</span>
+                        <input type="text" class="property-input" id="propHeight" value="-" onchange="app.properties.updateDimension('height', this.value)">
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Radius</span>
+                        <input type="text" class="property-input" id="propRadius" value="-" onchange="app.properties.updateDimension('radius', this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Material Section -->
+            <div class="properties-section">
+                <div class="section-title" onclick="app.properties.toggle('material')">
+                    <span>Material</span>
+                    <span>▼</span>
+                </div>
+                <div class="section-content" id="material-section">
+                    <div class="property-row">
+                        <span class="property-label">Material</span>
+                        <select class="property-input full-width" id="propMaterial">
+                            <option>None</option>
+                            <option>Aluminum</option>
+                            <option>Steel</option>
+                            <option>Brass</option>
+                            <option>Copper</option>
+                            <option>Plastic</option>
+                            <option>Wood</option>
+                        </select>
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Density</span>
+                        <input type="text" class="property-input" id="propDensity" value="-" readonly>
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Mass</span>
+                        <input type="text" class="property-input" id="propMass" value="-" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Appearance Section -->
+            <div class="properties-section">
+                <div class="section-title" onclick="app.properties.toggle('appearance')">
+                    <span>Appearance</span>
+                    <span>▼</span>
+                </div>
+                <div class="section-content" id="appearance-section">
+                    <div class="property-row">
+                        <span class="property-label">Opacity</span>
+                        <input type="range" class="slider-control" min="0" max="100" value="100" onchange="app.properties.updateOpacity(this.value)">
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Roughness</span>
+                        <input type="range" class="slider-control" min="0" max="100" value="50" onchange="app.properties.updateRoughness(this.value)">
+                    </div>
+                    <div class="property-row">
+                        <span class="property-label">Metallic</span>
+                        <input type="range" class="slider-control" min="0" max="100" value="0" onchange="app.properties.updateMetallic(this.value)">
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Bottom Panel - Command Line -->
+    <div class="bottom-panel">
+        <div class="command-tabs">
+            <div class="command-tab active" onclick="app.command.switchTab('history')">Command History</div>
+            <div class="command-tab" onclick="app.command.switchTab('messages')">Messages</div>
+            <div class="command-tab" onclick="app.command.switchTab('console')">Console</div>
+        </div>
+        <div class="command-line">
+            <span class="command-prompt">Command:</span>
+            <input type="text" class="command-input" id="commandInput" placeholder="Enter command or coordinates (e.g., LINE, CIRCLE, 100,50)..." autocomplete="off">
+        </div>
+        <div class="command-history" id="commandHistory">
+            <div class="command-entry info">CAD Pro v2.0 initialized</div>
+            <div class="command-entry success">Ready for input - Type HELP for available commands</div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+        <div class="status-section">
+            <div class="status-item">
+                <span>Model:</span>
+                <span id="modelName" style="color:var(--text-primary);">Part1</span>
+            </div>
+            <div class="status-item">
+                <span>Units:</span>
+                <select style="background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-size:0.75rem;" id="unitsSelect" onchange="app.setUnits(this.value)">
+                    <option>mm</option>
+                    <option>cm</option>
+                    <option>m</option>
+                    <option>in</option>
+                    <option>ft</option>
+                </select>
+            </div>
+            <div class="status-item">
+                <span class="toggle-btn active" id="gridStatus" onclick="app.view.toggleGrid()">GRID</span>
+            </div>
+            <div class="status-item">
+                <span class="toggle-btn active" id="snapStatus" onclick="app.view.toggleSnap()">SNAP</span>
+            </div>
+            <div class="status-item">
+                <span class="toggle-btn" id="orthoStatus" onclick="app.view.toggleOrtho()">ORTHO</span>
+            </div>
+        </div>
+        <div class="status-section">
+            <div class="status-item coordinate-display">
+                X: <span id="coordX">0.000</span>
+                Y: <span id="coordY">0.000</span>
+                Z: <span id="coordZ">0.000</span>
+            </div>
+        </div>
+        <div class="status-section">
+            <div class="status-item">
+                <span>Objects:</span>
+                <span id="objectCount">0</span>
+            </div>
+            <div class="status-item">
+                <span>FPS:</span>
+                <span id="fpsCounter">60</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="contextMenu">
+        <div class="dropdown-item" onclick="app.context.new()">📄 New</div>
+        <div class="dropdown-item" onclick="app.context.open()">📁 Open</div>
+        <div class="dropdown-separator"></div>
+        <div class="dropdown-item" onclick="app.context.copy()">📋 Copy</div>
+        <div class="dropdown-item" onclick="app.context.paste()">📋 Paste</div>
+        <div class="dropdown-item" onclick="app.context.duplicate()">📑 Duplicate</div>
+        <div class="dropdown-separator"></div>
+        <div class="dropdown-item" onclick="app.context.delete()">🗑️ Delete</div>
+        <div class="dropdown-separator"></div>
+        <div class="dropdown-item" onclick="app.context.properties()">⚙️ Properties</div>
+        <div class="dropdown-item" onclick="app.context.hide()">👁️ Hide</div>
+        <div class="dropdown-item" onclick="app.context.isolate()">🔍 Isolate Selected</div>
+        <div class="dropdown-item" onclick="app.context.unhideAll()">👁️ Unhide All</div>
+        <div class="dropdown-separator"></div>
+        <div class="dropdown-item" onclick="app.context.addToSelection()">➕ Add to Selection</div>
+        <div class="dropdown-item" onclick="app.context.removeFromSelection()">➖ Remove from Selection</div>
+        <div class="dropdown-separator"></div>
+        <div class="dropdown-item" onclick="app.context.createBlock()">📦 Create Block</div>
+        <div class="dropdown-item" onclick="app.context.explodeBlock()">💥 Explode Block</div>
+    </div>
+
+    <!-- Command Palette -->
+    <div class="command-palette" id="commandPalette">
+        <div class="command-palette-input">
+            <input type="text" id="paletteInput" placeholder="Type a command..." onkeydown="app.palette.handleInput(event)" oninput="app.palette.filter()">
+        </div>
+        <div class="command-palette-list" id="paletteList">
+            <!-- Populated dynamically -->
+        </div>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <span id="modalTitle">Dialog</span>
+                <button class="modal-close" onclick="app.modal.close()">×</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="app.modal.close()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.modal.confirm()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+// CAD Pro - Advanced Application Logic
+const app = {
+    // State Management
+    state: {
+        currentTool: null,
+        toolState: {}, // State machine for each tool
+        selection: [],
+        gridEnabled: true,
+        snapEnabled: true,
+        orthoEnabled: false,
+        viewMode: 'shaded',
+        units: 'mm',
+        zoom: 1.0,
+        rotation: { x: 30, y: -45 },
+        pan: { x: 0, y: 0 },
+        commandHistory: [],
+        undoStack: [],
+        redoStack: [],
+        features: [],
+        layers: [
+            { id: 0, name: 'Layer 0', color: '#58a6ff', visible: true, locked: false },
+            { id: 1, name: 'Dimensions', color: '#3fb950', visible: true, locked: false },
+            { id: 2, name: 'Construction', color: '#d29922', visible: false, locked: false }
+        ],
+        constraints: [],
+        clipboard: null,
+        lastMousePos: { x: 0, y: 0 },
+        isDragging: false,
+        mouseButton: 0
+    },
+
+    // Canvas Setup
+    canvas: null,
+    ctx: null,
+
+    init() {
+        this.canvas = document.getElementById('cad-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resizeCanvas();
+        this.setupEventListeners();
+        this.render();
+        this.command.add('CAD Pro v2.0 initialized', 'success');
+        this.animate();
+    },
+
+    resizeCanvas() {
+        const container = this.canvas.parentElement;
+        this.canvas.width = container.clientWidth;
+        this.canvas.height = container.clientHeight;
+        this.render();
+    },
+
+    setupEventListeners() {
+        window.addEventListener('resize', () => this.resizeCanvas());
+        
+        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseup', () => this.handleMouseUp());
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+        this.canvas.addEventListener('contextmenu', (e) => this.handleContextMenu(e));
+        
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        document.addEventListener('click', () => this.hideContextMenu());
+        
+        // Command input
+        document.getElementById('commandInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const cmd = e.target.value.trim();
+                if (cmd) {
+                    this.command.execute(cmd);
+                    e.target.value = '';
+                }
+            }
+        });
+    },
+
+    // Mouse Event Handlers
+    handleMouseDown(e) {
+        this.state.isDragging = true;
+        this.state.lastMousePos = { x: e.clientX, y: e.clientY };
+        this.state.mouseButton = e.button;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (e.button === 0 && this.state.currentTool) {
+            this.tools.handleToolClick(x, y);
+        }
+
+        this.updateCoordinates(x, y);
+    },
+
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (this.state.isDragging) {
+            const dx = e.clientX - this.state.lastMousePos.x;
+            const dy = e.clientY - this.state.lastMousePos.y;
+
+            if (this.state.mouseButton === 1 || (this.state.mouseButton === 0 && e.shiftKey)) {
+                // Pan
+                this.state.pan.x += dx;
+                this.state.pan.y += dy;
+            } else if (this.state.mouseButton === 2 || (this.state.mouseButton === 0 && e.ctrlKey)) {
+                // Rotate
+                this.state.rotation.y += dx * 0.5;
+                this.state.rotation.x += dy * 0.5;
+            }
+
+            this.state.lastMousePos = { x: e.clientX, y: e.clientY };
+        }
+
+        this.updateCoordinates(x, y);
+        this.checkSnap(x, y);
+        
+        if (this.state.currentTool) {
+            this.tools.handleToolMove(x, y);
+        }
+        
+        this.render();
+    },
+
+    handleMouseUp() {
+        this.state.isDragging = false;
+    },
+
+    handleWheel(e) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        this.state.zoom *= delta;
+        this.state.zoom = Math.max(0.1, Math.min(10, this.state.zoom));
+        this.render();
+    },
+
+    handleContextMenu(e) {
+        e.preventDefault();
+        this.showContextMenu(e.clientX, e.clientY);
+    },
+
+    handleKeyDown(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        const key = e.key.toLowerCase();
+        
+        if (e.ctrlKey) {
+            switch (key) {
+                case 'n': e.preventDefault(); this.file.new(); break;
+                case 'o': e.preventDefault(); this.file.open(); break;
+                case 's': e.preventDefault(); this.file.save(); break;
+                case 'z': e.preventDefault(); this.edit.undo(); break;
+                case 'y': e.preventDefault(); this.edit.redo(); break;
+                case 'e': e.preventDefault(); this.view.zoomExtents(); break;
+                case 'p': e.preventDefault(); document.getElementById('commandPalette').classList.add('visible'); break;
+            }
+        } else if (e.key === 'Escape') {
+            this.state.currentTool = null;
+            this.selection.clear();
+            document.getElementById('commandPalette').classList.remove('visible');
+        } else {
+            switch (key) {
+                case 'l': this.draw.line(); break;
+                case 'c': this.draw.circle(); break;
+                case 'r': this.draw.rectangle(); break;
+                case 'a': this.draw.arc(); break;
+                case 'm': this.modify.move(); break;
+                case 'g': this.view.toggleGrid(); break;
+                case 's': this.view.toggleSnap(); break;
+                case 'delete': this.edit.delete(); break;
+                case 'f1': this.help.showHelp(); break;
+            }
+        }
+    },
+
+    // Render System
+    render() {
+        const ctx = this.ctx;
+        const canvas = this.canvas;
+
+        // Clear
+        ctx.fillStyle = '#0d1117';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Grid
+        if (this.state.gridEnabled) {
+            this.renderGrid();
+        }
+
+        // Axes
+        this.renderAxes();
+
+        // Features
+        this.state.features.forEach(feature => {
+            if (feature.visible) {
+                this.renderFeature(feature);
+            }
+        });
+
+        // Selection
+        this.state.selection.forEach(sel => {
+            this.renderSelection(sel);
+        });
+
+        // Preview (rubber banding)
+        if (this.state.currentTool && this.state.toolState.preview) {
+            this.renderPreview(this.state.toolState.preview);
+        }
+
+        // Update UI
+        this.updateFPS();
+        document.getElementById('objectCount').textContent = this.state.features.length;
+    },
+
+    renderGrid() {
+        const ctx = this.ctx;
+        const gridSize = 50 * this.state.zoom;
+        const offsetX = this.state.pan.x % gridSize;
+        const offsetY = this.state.pan.y % gridSize;
+
+        ctx.strokeStyle = '#21262d';
+        ctx.lineWidth = 0.5;
+
+        for (let x = offsetX; x < this.canvas.width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.canvas.height);
+            ctx.stroke();
+        }
+
+        for (let y = offsetY; y < this.canvas.height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(this.canvas.width, y);
+            ctx.stroke();
+        }
+    },
+
+    renderAxes() {
+        const ctx = this.ctx;
+        const centerX = this.canvas.width / 2 + this.state.pan.x;
+        const centerY = this.canvas.height / 2 + this.state.pan.y;
+
+        // X axis
+        ctx.strokeStyle = '#f85149';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(this.canvas.width, centerY);
+        ctx.stroke();
+
+        // Y axis
+        ctx.strokeStyle = '#3fb950';
+        ctx.beginPath();
+        ctx.moveTo(centerX, 0);
+        ctx.lineTo(centerX, this.canvas.height);
+        ctx.stroke();
+
+        // Origin
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+        ctx.fill();
+    },
+
+    renderFeature(feature) {
+        const ctx = this.ctx;
+        ctx.strokeStyle = feature.color || '#58a6ff';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = feature.fill || 'rgba(88, 166, 255, 0.2)';
+
+        switch (feature.type) {
+            case 'line':
+                ctx.beginPath();
+                ctx.moveTo(feature.x1, feature.y1);
+                ctx.lineTo(feature.x2, feature.y2);
+                ctx.stroke();
+                break;
+            case 'circle':
+                ctx.beginPath();
+                ctx.arc(feature.x, feature.y, feature.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                break;
+            case 'rectangle':
+                ctx.fillRect(feature.x, feature.y, feature.width, feature.height);
+                ctx.strokeRect(feature.x, feature.y, feature.width, feature.height);
+                break;
+            case 'arc':
+                ctx.beginPath();
+                ctx.arc(feature.x, feature.y, feature.radius, feature.startAngle, feature.endAngle);
+                ctx.stroke();
+                break;
+        }
+    },
+
+    renderSelection(feature) {
+        const ctx = this.ctx;
+        ctx.strokeStyle = '#f85149';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        // Highlight logic here
+        ctx.setLineDash([]);
+    },
+
+    renderPreview(preview) {
+        const ctx = this.ctx;
+        ctx.strokeStyle = '#58a6ff';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        
+        if (preview.type === 'line') {
+            ctx.beginPath();
+            ctx.moveTo(preview.x1, preview.y1);
+            ctx.lineTo(preview.x2, preview.y2);
+            ctx.stroke();
+        }
+        
+        ctx.setLineDash([]);
+    },
+
+    updateCoordinates(x, y) {
+        const worldX = ((x - this.canvas.width / 2 - this.state.pan.x) / this.state.zoom).toFixed(3);
+        const worldY = (-(y - this.canvas.height / 2 - this.state.pan.y) / this.state.zoom).toFixed(3);
+
+        document.getElementById('coordX').textContent = worldX;
+        document.getElementById('coordY').textContent = worldY;
+        document.getElementById('coordZ').textContent = '0.000';
+    },
+
+    checkSnap(x, y) {
+        const indicator = document.getElementById('snapIndicator');
+        if (!this.state.snapEnabled) {
+            indicator.style.display = 'none';
+            return;
+        }
+        // Snap detection logic
+        indicator.style.display = 'none';
+    },
+
+    updateFPS() {
+        document.getElementById('fpsCounter').textContent = '60';
+    },
+
+    // Animation Loop
+    animate() {
+        this.render();
+        requestAnimationFrame(() => this.animate());
+    },
+
+    // File Operations
+    file: {
+        new() {
+            app.modal.show('New File', 'Create a new drawing? Unsaved changes will be lost.', () => {
+                app.state.features = [];
+                app.state.selection = [];
+                app.state.undoStack = [];
+                app.state.redoStack = [];
+                app.command.add('NEW', 'success');
+                app.render();
+            });
+        },
+        open() {
+            app.command.add('OPEN');
+            app.toast.show('Open file dialog would appear here', 'info');
+        },
+        save() {
+            app.command.add('SAVE', 'success');
+            app.toast.show('File saved successfully', 'success');
+        },
+        saveAs() {
+            app.modal.show('Save As', 'Enter filename:<br><input type="text" class="property-input full-width" style="margin-top:0.5rem;">');
+        },
+        import() {
+            app.command.add('IMPORT');
+        },
+        export(format) {
+            app.command.add(`EXPORT ${format}`);
+            app.toast.show(`Exported to ${format}`, 'success');
+        },
+        print() {
+            app.command.add('PRINT');
+        },
+        close() {
+            app.command.add('CLOSE');
+        }
+    },
+
+    // Edit Operations
+    edit: {
+        undo() {
+            app.command.add('UNDO');
+        },
+        redo() {
+            app.command.add('REDO');
+        },
+        cut() {
+            app.command.add('CUT');
+        },
+        copy() {
+            app.command.add('COPY');
+        },
+        paste() {
+            app.command.add('PASTE');
+        },
+        duplicate() {
+            app.command.add('DUPLICATE');
+        },
+        delete() {
+            app.command.add('DELETE');
+            app.selection.clear();
+            app.render();
+        },
+        selectAll() {
+            app.command.add('SELECT ALL');
+        },
+        deselectAll() {
+            app.selection.clear();
+            app.render();
+            app.command.add('DESELECT ALL');
+        }
+    },
+
+    // View Operations
+    view: {
+        set(viewName) {
+            const rotations = {
+                front: { x: 0, y: 0 },
+                top: { x: 90, y: 0 },
+                right: { x: 0, y: 90 },
+                left: { x: 0, y: -90 },
+                bottom: { x: -90, y: 0 },
+                isometric: { x: 30, y: -45 }
+            };
+            app.state.rotation = rotations[viewName] || app.state.rotation;
+            app.command.add(`VIEW ${viewName.toUpperCase()}`);
+            app.render();
+        },
+        zoomExtents() {
+            app.state.zoom = 1.0;
+            app.state.pan = { x: 0, y: 0 };
+            app.command.add('ZOOM EXTENTS');
+            app.render();
+        },
+        zoomIn() {
+            app.state.zoom *= 1.2;
+            app.command.add('ZOOM IN');
+            app.render();
+        },
+        zoomOut() {
+            app.state.zoom /= 1.2;
+            app.command.add('ZOOM OUT');
+            app.render();
+        },
+        toggleGrid() {
+            app.state.gridEnabled = !app.state.gridEnabled;
+            document.getElementById('gridStatus').classList.toggle('active', app.state.gridEnabled);
+            app.updateGridInfo();
+            app.command.add(`GRID ${app.state.gridEnabled ? 'ON' : 'OFF'}`);
+            app.render();
+        },
+        toggleSnap() {
+            app.state.snapEnabled = !app.state.snapEnabled;
+            document.getElementById('snapStatus').classList.toggle('active', app.state.snapEnabled);
+            app.updateGridInfo();
+            app.command.add(`SNAP ${app.state.snapEnabled ? 'ON' : 'OFF'}`);
+        },
+        toggleOrtho() {
+            app.state.orthoEnabled = !app.state.orthoEnabled;
+            document.getElementById('orthoStatus').classList.toggle('active', app.state.orthoEnabled);
+            app.updateGridInfo();
+            app.command.add(`ORTHO ${app.state.orthoEnabled ? 'ON' : 'OFF'}`);
+        }
+    },
+
+    updateGridInfo() {
+        document.getElementById('gridInfo').textContent = 
+            `Grid: ${app.state.gridEnabled ? 'On' : 'Off'} | Snap: ${app.state.snapEnabled ? 'On' : 'Off'} | Ortho: ${app.state.orthoEnabled ? 'On' : 'Off'}`;
+    },
+
+    // Drawing Tools
+    draw: {
+        line() { app.setTool('line'); },
+        circle() { app.setTool('circle'); },
+        arc() { app.setTool('arc'); },
+        rectangle() { app.setTool('rectangle'); },
+        polygon() { app.setTool('polygon'); },
+        ellipse() { app.setTool('ellipse'); },
+        spline() { app.setTool('spline'); },
+        polyline() { app.setTool('polyline'); },
+        constructionLine() { app.setTool('construction'); },
+        centerline() { app.setTool('centerline'); },
+        point() { app.setTool('point'); }
+    },
+
+    // Modify Tools
+    modify: {
+        move() { app.setTool('move'); },
+        copy() { app.setTool('copy'); },
+        rotate() { app.setTool('rotate'); },
+        scale() { app.setTool('scale'); },
+        mirror() { app.setTool('mirror'); },
+        offset() { app.setTool('offset'); },
+        trim() { app.setTool('trim'); },
+        extend() { app.setTool('extend'); },
+        fillet() { app.setTool('fillet'); },
+        chamfer() { app.setTool('chamfer'); },
+        array() { app.setTool('array'); },
+        pattern() { app.setTool('pattern'); },
+        explode() { app.setTool('explode'); }
+    },
+
+    // 3D Modeling
+    model3d: {
+        box() { app.command.add('BOX'); },
+        sphere() { app.command.add('SPHERE'); },
+        cylinder() { app.command.add('CYLINDER'); },
+        cone() { app.command.add('CONE'); },
+        torus() { app.command.add('TORUS'); },
+        wedge() { app.command.add('WEDGE'); },
+        extrude() { app.command.add('EXTRUDE'); },
+        revolve() { app.command.add('REVOLVE'); },
+        sweep() { app.command.add('SWEEP'); },
+        loft() { app.command.add('LOFT'); },
+        union() { app.command.add('UNION'); },
+        difference() { app.command.add('DIFFERENCE'); },
+        intersect() { app.command.add('INTERSECT'); },
+        shell() { app.command.add('SHELL'); },
+        fillet3d() { app.command.add('FILLET3D'); },
+        chamfer3d() { app.command.add('CHAMFER3D'); },
+        draft() { app.command.add('DRAFT'); },
+        hole() { app.command.add('HOLE'); }
+    },
+
+    // Constraints
+    constraints: {
+        coincident() { app.command.add('CONSTRAINT COINCIDENT'); },
+        collinear() { app.command.add('CONSTRAINT COLLINEAR'); },
+        parallel() { app.command.add('CONSTRAINT PARALLEL'); },
+        perpendicular() { app.command.add('CONSTRAINT PERPENDICULAR'); },
+        tangent() { app.command.add('CONSTRAINT TANGENT'); },
+        concentric() { app.command.add('CONSTRAINT CONCENTRIC'); },
+        symmetric() { app.command.add('CONSTRAINT SYMMETRIC'); },
+        horizontal() { app.command.add('CONSTRAINT HORIZONTAL'); },
+        vertical() { app.command.add('CONSTRAINT VERTICAL'); },
+        dimension() { app.setTool('dimension'); },
+        angle() { app.command.add('CONSTRAINT ANGLE'); },
+        radius() { app.command.add('DIMENSION RADIUS'); },
+        diameter() { app.command.add('DIMENSION DIAMETER'); },
+        add() { app.command.add('CONSTRAINT ADD'); }
+    },
+
+    // Measure
+    measure: {
+        distance() { app.setTool('measure_distance'); },
+        angle() { app.setTool('measure_angle'); },
+        radius() { app.setTool('measure_radius'); },
+        diameter() { app.setTool('measure_diameter'); },
+        area() { app.setTool('measure_area'); },
+        volume() { app.setTool('measure_volume'); },
+        massProperties() { app.command.add('MASSPROP'); }
+    },
+
+    // Annotate
+    annotate: {
+        dimension() { app.setTool('dimension'); },
+        angle() { app.setTool('angle_dimension'); },
+        radius() { app.setTool('radius_dimension'); },
+        diameter() { app.setTool('diameter_dimension'); },
+        text() { app.setTool('text'); },
+        multilineText() { app.setTool('mtext'); }
+    },
+
+    // Render Modes
+    render: {
+        wireframe() { app.state.viewMode = 'wireframe'; app.command.add('RENDER WIREFRAME'); app.render(); },
+        shaded() { app.state.viewMode = 'shaded'; app.command.add('RENDER SHADED'); app.render(); },
+        realistic() { app.state.viewMode = 'realistic'; app.command.add('RENDER REALISTIC'); app.render(); }
+    },
+
+    // Tools namespace
+    tools: {
+        handleToolClick(x, y) {
+            const tool = app.state.currentTool;
+            if (!tool) return;
+
+            switch (tool) {
+                case 'line':
+                    if (!app.state.toolState.line) {
+                        app.state.toolState.line = { startX: x, startY: y };
+                    } else {
+                        app.addFeature({
+                            type: 'line',
+                            x1: app.state.toolState.line.startX,
+                            y1: app.state.toolState.line.startY,
+                            x2: x,
+                            y2: y
+                        });
+                        app.state.toolState.line = null;
+                    }
+                    break;
+                case 'circle':
+                    app.addFeature({ type: 'circle', x, y, radius: 50 });
+                    break;
+                case 'rectangle':
+                    app.addFeature({ type: 'rectangle', x, y, width: 100, height: 50 });
+                    break;
+            }
+        },
+        handleToolMove(x, y) {
+            if (app.state.currentTool === 'line' && app.state.toolState.line) {
+                app.state.toolState.preview = {
+                    type: 'line',
+                    x1: app.state.toolState.line.startX,
+                    y1: app.state.toolState.line.startY,
+                    x2: x,
+                    y2: y
+                };
+            }
+        }
+    },
+
+    setTool(tool) {
+        app.state.currentTool = tool;
+        app.state.toolState = {};
+        app.command.add(`TOOL: ${tool.toUpperCase()}`);
+        
+        // Update active button
+        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+        event?.target?.classList.add('active');
+    },
+
+    addFeature(feature) {
+        feature.id = Date.now();
+        feature.visible = true;
+        feature.color = '#58a6ff';
+        feature.layer = 0;
+        app.state.features.push(feature);
+        app.command.add(`${feature.type.toUpperCase()} created`, 'success');
+        app.render();
+        app.browser.updateFeatureTree();
+    },
+
+    // Selection
+    selection: {
+        add(feature) {
+            if (!app.state.selection.includes(feature)) {
+                app.state.selection.push(feature);
+                app.updateSelectionInfo();
+                app.render();
+            }
+        },
+        remove(feature) {
+            app.state.selection = app.state.selection.filter(f => f !== feature);
+            app.updateSelectionInfo();
+            app.render();
+        },
+        clear() {
+            app.state.selection = [];
+            app.updateSelectionInfo();
+            app.render();
+        }
+    },
+
+    updateSelectionInfo() {
+        const info = document.getElementById('selectionInfo');
+        if (app.state.selection.length === 0) {
+            info.textContent = 'No selection';
+        } else {
+            info.textContent = `${app.state.selection.length} object(s) selected`;
+        }
+    },
+
+    // Command System
+    command: {
+        execute(cmd) {
+            app.command.add(cmd);
+            const parts = cmd.toUpperCase().split(' ');
+            const command = parts[0];
+
+            const commands = {
+                'LINE': () => app.draw.line(),
+                'L': () => app.draw.line(),
+                'CIRCLE': () => app.draw.circle(),
+                'C': () => app.draw.circle(),
+                'RECTANGLE': () => app.draw.rectangle(),
+                'R': () => app.draw.rectangle(),
+                'MOVE': () => app.modify.move(),
+                'M': () => app.modify.move(),
+                'COPY': () => app.modify.copy(),
+                'CO': () => app.modify.copy(),
+                'ROTATE': () => app.modify.rotate(),
+                'RO': () => app.modify.rotate(),
+                'DELETE': () => app.edit.delete(),
+                'ERASE': () => app.edit.delete(),
+                'E': () => app.edit.delete(),
+                'ZOOM': () => parts[1] === 'E' ? app.view.zoomExtents() : null,
+                'PAN': () => app.setTool('pan'),
+                'P': () => app.setTool('pan'),
+                'REGEN': () => { app.render(); app.command.add('Regenerated', 'success'); },
+                'RE': () => { app.render(); app.command.add('Regenerated', 'success'); },
+                'HELP': () => app.help.showHelp(),
+                '?': () => app.help.showHelp()
+            };
+
+            if (commands[command]) {
+                commands[command]();
+            } else {
+                app.command.add(`Unknown command: ${command}`, 'error');
+            }
+        },
+        add(msg, type = '') {
+            const history = document.getElementById('commandHistory');
+            const entry = document.createElement('div');
+            entry.className = `command-entry ${type}`;
+            entry.textContent = type ? msg : `> ${msg}`;
+            history.appendChild(entry);
+            history.scrollTop = history.scrollHeight;
+            app.state.commandHistory.push(msg);
+        },
+        switchTab(tab) {
+            document.querySelectorAll('.command-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+    },
+
+    // Context Menu
+    showContextMenu(x, y) {
+        const menu = document.getElementById('contextMenu');
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+        menu.classList.add('visible');
+    },
+
+    hideContextMenu() {
+        document.getElementById('contextMenu').classList.remove('visible');
+    },
+
+    context: {
+        new() { app.file.new(); },
+        open() { app.file.open(); },
+        copy() { app.edit.copy(); },
+        paste() { app.edit.paste(); },
+        duplicate() { app.edit.duplicate(); },
+        delete() { app.edit.delete(); },
+        properties() { app.properties.show(); },
+        hide() { app.command.add('HIDE'); },
+        isolate() { app.command.add('ISOLATE'); },
+        unhideAll() { app.command.add('UNHIDE ALL'); },
+        addToSelection() { app.command.add('ADD TO SELECTION'); },
+        removeFromSelection() { app.command.add('REMOVE FROM SELECTION'); },
+        createBlock() { app.command.add('CREATE BLOCK'); },
+        explodeBlock() { app.command.add('EXPLODE BLOCK'); }
+    },
+
+    // Properties Panel
+    properties: {
+        toggle(section) {
+            const content = document.getElementById(`${section}-section`);
+            content.style.display = content.style.display === 'none' ? 'block' : 'none';
+        },
+        reset() {
+            document.getElementById('propType').textContent = '-';
+            document.getElementById('propX').value = '0.000';
+            document.getElementById('propY').value = '0.000';
+            document.getElementById('propZ').value = '0.000';
+        },
+        updateColor(value) {
+            app.command.add(`COLOR: ${value}`);
+        },
+        updatePosition() {
+            app.command.add('POSITION UPDATED');
+        },
+        updateRotation() {
+            app.command.add('ROTATION UPDATED');
+        },
+        updateDimension(dim, value) {
+            app.command.add(`${dim.toUpperCase()}: ${value}`);
+        },
+        updateOpacity(value) {
+            app.command.add(`OPACITY: ${value}%`);
+        },
+        updateRoughness(value) {
+            app.command.add(`ROUGHNESS: ${value}%`);
+        },
+        updateMetallic(value) {
+            app.command.add(`METALLIC: ${value}%`);
+        },
+        show() {
+            app.command.add('PROPERTIES');
+        }
+    },
+
+    // Browser Panel
+    browser: {
+        switchTab(tab) {
+            document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.getElementById('panel-features').style.display = 'none';
+            document.getElementById('panel-layers').style.display = 'none';
+            document.getElementById('panel-constraints').style.display = 'none';
+            document.getElementById(`panel-${tab}`).style.display = 'block';
+        },
+        toggleItem(item) {
+            const children = item.querySelector('.tree-children');
+            const icon = item.querySelector('.tree-icon');
+            if (children) {
+                children.style.display = children.style.display === 'none' ? 'block' : 'none';
+                icon.textContent = children.style.display === 'none' ? '▶' : '▼';
+            }
+        },
+        refresh() {
+            app.command.add('REFRESH');
+            this.updateFeatureTree();
+        },
+        updateFeatureTree() {
+            // Update feature tree dynamically
+        }
+    },
+
+    // Layers
+    layers: {
+        add() {
+            app.command.add('LAYER NEW');
+        }
+    },
+
+    // Ribbon
+    ribbon: {
+        switch(tab) {
+            document.querySelectorAll('.ribbon-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.ribbon-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(`ribbon-${tab}`).classList.add('active');
+        }
+    },
+
+    // Modal
+    modal: {
+        show(title, content, onConfirm) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalBody').innerHTML = content;
+            document.getElementById('modalOverlay').classList.add('visible');
+            this.onConfirm = onConfirm;
+        },
+        close() {
+            document.getElementById('modalOverlay').classList.remove('visible');
+            this.onConfirm = null;
+        },
+        confirm() {
+            if (this.onConfirm) this.onConfirm();
+            this.close();
+        }
+    },
+
+    // Toast Notifications
+    toast: {
+        show(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    },
+
+    // Command Palette
+    palette: {
+        handleInput(e) {
+            if (e.key === 'Escape') {
+                document.getElementById('commandPalette').classList.remove('visible');
+            }
+        },
+        filter() {
+            // Filter commands based on input
+        }
+    },
+
+    // Handle Search
+    handleSearch(e) {
+        if (e.key === 'Enter') {
+            const query = e.target.value;
+            app.command.execute(query);
+            e.target.value = '';
+        }
+    },
+
+    // Set Units
+    setUnits(units) {
+        app.state.units = units;
+        app.command.add(`UNITS: ${units}`);
+    },
+
+    // Help
+    help: {
+        showHelp() {
+            app.modal.show('Help', `
+                <h3 style="margin-bottom:1rem;">CAD Pro Quick Help</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;font-size:0.85rem;">
+                    <div>
+                        <strong>Drawing:</strong><br>
+                        L - Line<br>
+                        C - Circle<br>
+                        R - Rectangle<br>
+                        A - Arc
+                    </div>
+                    <div>
+                        <strong>Modify:</strong><br>
+                        M - Move<br>
+                        CO - Copy<br>
+                        RO - Rotate<br>
+                        SC - Scale
+                    </div>
+                    <div>
+                        <strong>Navigation:</strong><br>
+                        Middle Mouse - Pan<br>
+                        Ctrl+Left - Rotate<br>
+                        Scroll - Zoom
+                    </div>
+                    <div>
+                        <strong>General:</strong><br>
+                        G - Toggle Grid<br>
+                        S - Toggle Snap<br>
+                        F8 - Toggle Ortho<br>
+                        Ctrl+P - Command Palette
+                    </div>
+                </div>
+            `);
+        },
+        shortcuts() {
+            app.modal.show('Keyboard Shortcuts', `
+                <table style="width:100%;font-size:0.85rem;">
+                    <tr><td>Ctrl+N</td><td>New File</td></tr>
+                    <tr><td>Ctrl+O</td><td>Open</td></tr>
+                    <tr><td>Ctrl+S</td><td>Save</td></tr>
+                    <tr><td>Ctrl+Z</td><td>Undo</td></tr>
+                    <tr><td>Ctrl+Y</td><td>Redo</td></tr>
+                    <tr><td>Ctrl+E</td><td>Zoom Extents</td></tr>
+                    <tr><td>Ctrl+P</td><td>Command Palette</td></tr>
+                    <tr><td>G</td><td>Toggle Grid</td></tr>
+                    <tr><td>S</td><td>Toggle Snap</td></tr>
+                    <tr><td>F8</td><td>Toggle Ortho</td></tr>
+                    <tr><td>Del</td><td>Delete</td></tr>
+                    <tr><td>Esc</td><td>Deselect/Cancel</td></tr>
+                    <tr><td>F1</td><td>Help</td></tr>
+                </table>
+            `);
+        },
+        tutorials() {
+            app.toast.show('Tutorials coming soon!', 'info');
+        },
+        checkUpdates() {
+            app.command.add('CHECKUPDATES');
+            app.toast.show('You are running the latest version', 'success');
+        },
+        about() {
+            app.modal.show('About CAD Pro', `
+                <h3 style="margin-bottom:0.5rem;">CAD Pro v2.0</h3>
+                <p style="color:var(--text-secondary);margin-bottom:1rem;">
+                    Advanced web-based CAD application with professional features.
+                </p>
+                <p style="font-size:0.85rem;color:var(--text-secondary);">
+                    © 2024 CAD Pro Team<br>
+                    Built with modern web technologies
+                </p>
+            `);
+        }
+    }
+};
+
+// Initialize on load
+window.addEventListener('DOMContentLoaded', () => {
+    app.init();
+});
+    </script>
+</body>
+</html>
