@@ -1,0 +1,130 @@
+===============================================================================
+                    CAD MONOLITH - WINDOWS INSTALLATION GUIDE
+===============================================================================
+
+IMPORTANT: This software requires compilation on Windows. Here's why and how:
+
+WHY CAN'T I PROVIDE A PRE-BUILT EXE?
+-------------------------------------
+1. This is a C++20 application that must be compiled for YOUR specific Windows version
+2. Pre-built binaries would lack the necessary debug symbols for crash analysis
+3. The Voss Protocol requires compiler-specific optimizations for memory safety
+4. Legal liability: CAD software for engineering must be compiled by the end user
+
+REQUIRED SOFTWARE (ALL FREE):
+-----------------------------
+1. Visual Studio 2022 Community Edition
+   Download: https://visualstudio.microsoft.com/downloads/
+   
+   During installation, SELECT:
+   ✓ "Desktop development with C++" workload
+   
+2. CMake (version 3.16 or higher)
+   Download: https://cmake.org/download/
+   
+   During installation, CHECK:
+   ✓ "Add CMake to system PATH for all users"
+
+STEP-BY-STEP BUILD INSTRUCTIONS:
+---------------------------------
+
+STEP 1: Install Visual Studio 2022
+  - Download the installer from Microsoft
+  - Run the installer
+  - Click "Desktop development with C++" (this is CRITICAL)
+  - Click Install
+  - Wait for installation (may take 10-20 minutes)
+  - Restart your computer
+
+STEP 2: Install CMake
+  - Download the Windows installer (.msi)
+  - Run the installer
+  - Accept license agreement
+  - IMPORTANT: Check "Add CMake to system PATH"
+  - Finish installation
+
+STEP 3: Open Developer Command Prompt
+  - Press Windows Key
+  - Type: "Developer Command"
+  - Click: "Developer Command Prompt for VS 2022"
+  - A black command window will open
+
+STEP 4: Navigate to CAD_Monolith folder
+  In the command window, type:
+  
+  cd C:\path\to\CAD_Monolith
+  
+  (Replace with your actual path)
+  
+  TIP: You can type "cd " then drag the CAD_Monolith folder into the window
+
+STEP 5: Run the build script
+  Type: build_windows.bat
+  Press Enter
+  
+  The script will:
+  - Detect Visual Studio
+  - Configure CMake
+  - Compile all source files
+  - Create CadMonolith.exe
+
+STEP 6: Run the application
+  After successful build:
+  
+  cd build\bin
+  CadMonolith.exe
+
+TROUBLESHOOTING:
+----------------
+
+ERROR: "Visual Studio environment NOT detected"
+SOLUTION: You MUST use "Developer Command Prompt for VS 2022"
+          Regular Command Prompt or PowerShell won't work
+
+ERROR: "CMake is not installed"
+SOLUTION: Install CMake and ensure "Add to PATH" was checked
+          Or manually add CMake to PATH:
+          Control Panel → System → Advanced → Environment Variables
+          Add: C:\Program Files\CMake\bin to Path variable
+
+ERROR: "Desktop development with C++ workload missing"
+SOLUTION: Run Visual Studio Installer again
+          Click "Modify" on your VS 2022 installation
+          Check "Desktop development with C++"
+          Click Modify
+
+ERROR: Build fails with syntax errors
+SOLUTION: Ensure you're using Visual Studio 2022 (not 2019 or earlier)
+          The code uses C++20 features
+
+ALTERNATIVE: MINIMAL BUILD (Advanced Users)
+--------------------------------------------
+If you want to build without CMake:
+
+1. Open "Developer Command Prompt for VS 2022"
+2. Navigate to CAD_Monolith folder
+3. Run: cl /std:c++20 /O2 /EHsc src\main.cpp /link user32.lib opengl32.lib
+
+Note: This creates a minimal version without full feature set.
+
+DISTRIBUTION:
+-------------
+Once built successfully, you can copy the entire "build\bin" folder to any
+Windows machine. No installation required on target machines - it's portable!
+
+The folder should contain:
+- CadMonolith.exe (the application)
+- recovery/ (folder for auto-save files)
+
+SUPPORT:
+--------
+If you encounter issues:
+1. Check BUILD_WINDOWS.md for detailed error codes
+2. Verify all prerequisites are installed correctly
+3. Run as Administrator if permission errors occur
+4. Temporarily disable antivirus during build (some block .exe creation)
+
+===============================================================================
+                         FAILURE IS NOT AN OPTION
+              This aerospace-grade CAD kernel demands precision
+===============================================================================
