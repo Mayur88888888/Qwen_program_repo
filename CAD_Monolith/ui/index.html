@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiteCAD - Offline Professional CAD</title>
+    <style>
+        :root {
+            --bg-dark: #1e1e1e;
+            --bg-panel: #252526;
+            --bg-canvas: #121212;
+            --accent: #007acc;
+            --text-main: #cccccc;
+            --text-dim: #858585;
+            --border: #3e3e42;
+            --grid-major: #333333;
+            --grid-minor: #2a2a2a;
+            --hover: #2d2d30;
+            --success: #4ec9b0;
+            --danger: #f44747;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text-main); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* Layout */
+        #app { display: flex; flex: 1; height: calc(100vh - 30px); }
+        
+        /* Toolbar */
+        #toolbar {
+            height: 40px; background: var(--bg-panel); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 10px; gap: 5px;
+        }
+        .tool-btn {
+            background: transparent; border: 1px solid transparent; color: var(--text-main);
+            padding: 5px 10px; cursor: pointer; border-radius: 3px; font-size: 12px;
+            display: flex; align-items: center; gap: 5px; transition: all 0.2s;
+        }
+        .tool-btn:hover { background: var(--hover); }
+        .tool-btn.active { background: var(--accent); color: white; }
+        .separator { width: 1px; height: 20px; background: var(--border); margin: 0 5px; }
+
+        /* Panels */
+        .panel {
+            background: var(--bg-panel); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; transition: width 0.2s;
+            min-width: 200px; max-width: 300px; width: 250px;
+        }
+        .panel.collapsed { width: 0 !important; overflow: hidden; border: none; }
+        .panel-header {
+            padding: 8px 10px; font-weight: bold; font-size: 11px; text-transform: uppercase;
+            color: var(--text-dim); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;
+        }
+        .panel-content { padding: 10px; overflow-y: auto; flex: 1; font-size: 12px; }
+        .property-row { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center; }
+        .property-row label { color: var(--text-dim); }
+        .property-row input { background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-main); padding: 2px 5px; width: 80px; border-radius: 2px; }
+        
+        /* Right Panel */
+        #right-panel { border-right: none; border-left: 1px solid var(--border); min-width: 200px; }
+
+        /* Canvas Area */
+        #workspace { flex: 1; position: relative; background: var(--bg-canvas); overflow: hidden; cursor: crosshair; }
+        canvas { display: block; }
+        
+        /* Overlay Controls */
+        .overlay-btn {
+            position: absolute; top: 10px; right: 10px; background: var(--bg-panel);
+            border: 1px solid var(--border); color: var(--text-main); padding: 5px 10px;
+            cursor: pointer; border-radius: 3px; font-size: 11px; z-index: 10;
+        }
+        .toggle-panel { position: absolute; top: 50%; transform: translateY(-50%); background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-main); width: 20px; height: 40px; cursor: pointer; z-index: 20; display: flex; align-items: center; justify-content: center; border-radius: 3px; }
+        #left-toggle { left: 0; border-left: none; border-radius: 0 3px 3px 0; }
+        #right-toggle { right: 0; border-right: none; border-radius: 3px 0 0 3px; }
+
+        /* Status Bar */
+        #statusbar {
+            height: 24px; background: var(--accent); color: white; font-size: 11px;
+            display: flex; align-items: center; padding: 0 10px; justify-content: space-between;
+        }
+        .coords { font-family: monospace; }
+
+        /* Context Menu */
+        #context-menu {
+            position: absolute; background: var(--bg-panel); border: 1px solid var(--border);
+            display: none; flex-direction: column; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .ctx-item { padding: 8px 15px; cursor: pointer; font-size: 12px; }
+        .ctx-item:hover { background: var(--accent); color: white; }
+
+        /* Toast */
+        #toast {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-main);
+            padding: 8px 16px; border-radius: 4px; font-size: 12px; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Toolbar -->
+    <div id="toolbar">
+        <button class="tool-btn" onclick="app.file.new()" title="New File">📄 New</button>
+        <button class="tool-btn" onclick="app.file.save()" title="Save JSON">💾 Save</button>
+        <button class="tool-btn" onclick="document.getElementById('file-input').click()" title="Open JSON">📂 Open</button>
+        <input type="file" id="file-input" style="display:none" onchange="app.file.load(this)">
+        <div class="separator"></div>
+        <button class="tool-btn" onclick="app.setTool('select')" id="btn-select" title="Select (V)">✋ Select</button>
+        <button class="tool-btn" onclick="app.setTool('line')" id="btn-line" title="Line (L)">📏 Line</button>
+        <button class="tool-btn" onclick="app.setTool('rect')" id="btn-rect" title="Rectangle (R)">⬜ Rect</button>
+        <button class="tool-btn" onclick="app.setTool('circle')" id="btn-circle" title="Circle (C)">⭕ Circle</button>
+        <div class="separator"></div>
+        <button class="tool-btn" onclick="app.setTool('move')" id="btn-move" title="Move (M)">↔ Move</button>
+        <button class="tool-btn" onclick="app.deleteSelection()" title="Delete (Del)">🗑 Delete</button>
+        <div class="separator"></div>
+        <button class="tool-btn" onclick="app.undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
+        <button class="tool-btn" onclick="app.redo()" title="Redo (Ctrl+Y)">↪ Redo</button>
+        <div class="separator"></div>
+        <button class="tool-btn" onclick="app.toggleGrid()" id="btn-grid" title="Toggle Grid (G)"># Grid</button>
+        <button class="tool-btn" onclick="app.toggleSnap()" id="btn-snap" title="Toggle Snap (S)">🧲 Snap</button>
+    </div>
+
+    <div id="app">
+        <!-- Left Panel: Properties -->
+        <div id="left-panel" class="panel">
+            <div class="panel-header">Properties <span id="prop-count"></span></div>
+            <div class="panel-content" id="properties-list">
+                <div style="color:var(--text-dim); font-style:italic;">No selection</div>
+            </div>
+        </div>
+        <div id="left-toggle" class="toggle-panel" onclick="app.togglePanel('left')">‹</div>
+
+        <!-- Workspace -->
+        <div id="workspace">
+            <canvas id="cad-canvas"></canvas>
+            <button class="overlay-btn" onclick="app.resetView()">Reset View</button>
+            <div id="toast">Notification</div>
+        </div>
+
+        <div id="right-toggle" class="toggle-panel" onclick="app.togglePanel('right')">›</div>
+
+        <!-- Right Panel: Layers/Info -->
+        <div id="right-panel" class="panel">
+            <div class="panel-header">Drawing Info</div>
+            <div class="panel-content">
+                <div class="property-row"><label>Objects:</label><span id="info-count">0</span></div>
+                <div class="property-row"><label>Zoom:</label><span id="info-zoom">100%</span></div>
+                <div class="property-row"><label>Grid:</label><span id="info-grid">On</span></div>
+                <div style="margin-top:20px; font-size:11px; color:var(--text-dim); line-height:1.4;">
+                    <strong>Shortcuts:</strong><br>
+                    V: Select | L: Line<br>
+                    R: Rect | C: Circle<br>
+                    M: Move | Del: Delete<br>
+                    G: Grid | S: Snap<br>
+                    Middle Mouse: Pan<br>
+                    Wheel: Zoom
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div id="statusbar">
+        <span id="status-msg">Ready</span>
+        <span class="coords" id="coords-display">X: 0.00 Y: 0.00</span>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu">
+        <div class="ctx-item" onclick="app.setTool('line')">Draw Line</div>
+        <div class="ctx-item" onclick="app.setTool('rect')">Draw Rect</div>
+        <div class="ctx-item" onclick="app.deleteSelection()">Delete Selected</div>
+        <div class="ctx-item" onclick="app.resetView()">Reset View</div>
+    </div>
+
+<script>
+/**
+ * LiteCAD Core Engine
+ * Zero dependencies. Pure Vanilla JS.
+ */
+
+const Utils = {
+    dist: (p1, p2) => Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2),
+    snap: (val, size) => Math.round(val / size) * size,
+    clamp: (num, min, max) => Math.min(Math.max(num, min), max)
+};
+
+class Geometry {
+    constructor(type, props) {
+        this.id = Date.now() + Math.random();
+        this.type = type; // 'line', 'rect', 'circle'
+        this.props = { ...props }; // x, y, x2, y2, r, etc.
+        this.color = '#4ec9b0';
+        this.lineWidth = 2;
+    }
+}
+
+class CADApp {
+    constructor() {
+        this.canvas = document.getElementById('cad-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.workspace = document.getElementById('workspace');
+        
+        // State
+        this.shapes = [];
+        this.history = [];
+        this.historyStep = -1;
+        this.selection = null; // Single selection for simplicity
+        
+        // Viewport
+        this.camera = { x: 0, y: 0, zoom: 1 };
+        this.isPanning = false;
+        this.lastMouse = { x: 0, y: 0 };
+        
+        // Tools
+        this.currentTool = 'select';
+        this.toolState = {}; // { startX, startY, previewShape }
+        
+        // Settings
+        this.showGrid = true;
+        this.snapEnabled = true;
+        this.gridSize = 50;
+        this.snapDist = 15; // pixels
+
+        this.init();
+    }
+
+    init() {
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.setupEvents();
+        this.saveState(); // Initial state
+        this.render();
+        this.showToast("LiteCAD Ready - Offline Mode");
+    }
+
+    resize() {
+        this.canvas.width = this.workspace.clientWidth;
+        this.canvas.height = this.workspace.clientHeight;
+        this.render();
+    }
+
+    setupEvents() {
+        // Mouse Events
+        this.canvas.addEventListener('mousedown', e => this.handleMouseDown(e));
+        this.canvas.addEventListener('mousemove', e => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseup', e => this.handleMouseUp(e));
+        this.canvas.addEventListener('wheel', e => this.handleWheel(e), { passive: false });
+        this.canvas.addEventListener('contextmenu', e => this.handleContextMenu(e));
+        
+        // Keyboard
+        window.addEventListener('keydown', e => this.handleKey(e));
+        
+        // Global click to close context menu
+        window.addEventListener('click', () => {
+            document.getElementById('context-menu').style.display = 'none';
+        });
+    }
+
+    // --- Coordinate Systems ---
+    screenToWorld(sx, sy) {
+        return {
+            x: (sx - this.camera.x) / this.camera.zoom,
+            y: (sy - this.camera.y) / this.camera.zoom
+        };
+    }
+
+    worldToScreen(wx, wy) {
+        return {
+            x: wx * this.camera.zoom + this.camera.x,
+            y: wy * this.camera.zoom + this.camera.y
+        };
+    }
+
+    getSnapPoint(worldPt) {
+        if (!this.snapEnabled) return worldPt;
+        
+        // Snap to grid
+        let snapped = {
+            x: Utils.snap(worldPt.x, this.gridSize),
+            y: Utils.snap(worldPt.y, this.gridSize)
+        };
+
+        // Snap to existing points (endpoints, centers)
+        let minD = this.snapDist / this.camera.zoom;
+        let bestSnap = snapped;
+        let foundCloser = false;
+
+        for (let shape of this.shapes) {
+            let points = this.getShapePoints(shape);
+            for (let pt of points) {
+                let d = Utils.dist(worldPt, pt);
+                if (d < minD) {
+                    minD = d;
+                    bestSnap = pt;
+                    foundCloser = true;
+                }
+            }
+        }
+        return bestSnap;
+    }
+
+    getShapePoints(shape) {
+        let pts = [];
+        if (shape.type === 'line') {
+            pts.push({x: shape.props.x1, y: shape.props.y1});
+            pts.push({x: shape.props.x2, y: shape.props.y2});
+        } else if (shape.type === 'rect') {
+            pts.push({x: shape.props.x, y: shape.props.y});
+            pts.push({x: shape.props.x + shape.props.w, y: shape.props.y});
+            pts.push({x: shape.props.x, y: shape.props.y + shape.props.h});
+            pts.push({x: shape.props.x + shape.props.w, y: shape.props.y + shape.props.h});
+        } else if (shape.type === 'circle') {
+            pts.push({x: shape.props.cx, y: shape.props.cy});
+            // Add 4 cardinal points
+            pts.push({x: shape.props.cx + shape.props.r, y: shape.props.cy});
+            pts.push({x: shape.props.cx - shape.props.r, y: shape.props.cy});
+            pts.push({x: shape.props.cx, y: shape.props.cy + shape.props.r});
+            pts.push({x: shape.props.cx, y: shape.props.cy - shape.props.r});
+        }
+        return pts;
+    }
+
+    // --- Input Handlers ---
+    handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const world = this.screenToWorld(mx, my);
+        const snapped = this.getSnapPoint(world);
+
+        this.lastMouse = { x: mx, y: my };
+
+        // Middle Mouse or Shift+Left for Pan
+        if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+            this.isPanning = true;
+            this.canvas.style.cursor = 'grabbing';
+            return;
+        }
+
+        if (e.button !== 0) return; // Only Left Click
+
+        if (this.currentTool === 'select') {
+            this.selectAt(world);
+        } else {
+            // Start Drawing
+            this.toolState = {
+                start: snapped,
+                current: snapped,
+                active: true
+            };
+            this.canvas.style.cursor = 'crosshair';
+        }
+    }
+
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const world = this.screenToWorld(mx, my);
+        const snapped = this.getSnapPoint(world);
+
+        // Update Coordinates Display
+        document.getElementById('coords-display').textContent = 
+            `X: ${world.x.toFixed(2)} Y: ${world.y.toFixed(2)}`;
+
+        // Panning
+        if (this.isPanning) {
+            const dx = mx - this.lastMouse.x;
+            const dy = my - this.lastMouse.y;
+            this.camera.x += dx;
+            this.camera.y += dy;
+            this.lastMouse = { x: mx, y: my };
+            this.render();
+            return;
+        }
+
+        // Tool Preview
+        if (this.toolState.active) {
+            this.toolState.current = snapped;
+            this.render(); // Redraw with preview
+        }
+    }
+
+    handleMouseUp(e) {
+        if (this.isPanning) {
+            this.isPanning = false;
+            this.canvas.style.cursor = 'default';
+            return;
+        }
+
+        if (this.toolState.active && ['line', 'rect', 'circle'].includes(this.currentTool)) {
+            this.finishDrawing();
+        }
+    }
+
+    handleWheel(e) {
+        e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        
+        const zoomFactor = 1.1;
+        const delta = e.deltaY > 0 ? 1/zoomFactor : zoomFactor;
+        
+        const newZoom = Utils.clamp(this.camera.zoom * delta, 0.1, 5.0);
+        
+        // Zoom towards mouse pointer
+        const worldBefore = this.screenToWorld(mx, my);
+        this.camera.zoom = newZoom;
+        const worldAfter = this.screenToWorld(mx, my);
+        
+        this.camera.x += (worldAfter.x - worldBefore.x) * newZoom;
+        this.camera.y += (worldAfter.y - worldBefore.y) * newZoom;
+        
+        this.updateInfo();
+        this.render();
+    }
+
+    handleContextMenu(e) {
+        e.preventDefault();
+        const menu = document.getElementById('context-menu');
+        menu.style.display = 'flex';
+        menu.style.left = e.clientX + 'px';
+        menu.style.top = e.clientY + 'px';
+    }
+
+    handleKey(e) {
+        if (e.target.tagName === 'INPUT') return; // Ignore if typing
+        
+        const key = e.key.toLowerCase();
+        if (key === 'v') this.setTool('select');
+        if (key === 'l') this.setTool('line');
+        if (key === 'r') this.setTool('rect');
+        if (key === 'c') this.setTool('circle');
+        if (key === 'm') this.setTool('move');
+        if (key === 'g') this.toggleGrid();
+        if (key === 's') this.toggleSnap();
+        if (key === 'delete' || key === 'backspace') this.deleteSelection();
+        
+        if ((e.ctrlKey || e.metaKey) && key === 'z') { e.preventDefault(); this.undo(); }
+        if ((e.ctrlKey || e.metaKey) && key === 'y') { e.preventDefault(); this.redo(); }
+    }
+
+    // --- Logic ---
+
+    setTool(tool) {
+        this.currentTool = tool;
+        this.toolState = {};
+        this.selection = null;
+        
+        // Update UI
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        const btn = document.getElementById(`btn-${tool}`);
+        if(btn) btn.classList.add('active');
+        
+        this.updateStatus(`Tool: ${tool.toUpperCase()}`);
+        this.render();
+    }
+
+    selectAt(worldPt) {
+        // Simple hit detection
+        let found = null;
+        // Reverse iterate to select top-most
+        for (let i = this.shapes.length - 1; i >= 0; i--) {
+            const s = this.shapes[i];
+            if (this.isHit(s, worldPt)) {
+                found = s;
+                break;
+            }
+        }
+        this.selection = found;
+        this.updatePropertiesPanel();
+        this.render();
+    }
+
+    isHit(shape, pt) {
+        const tolerance = 10 / this.camera.zoom;
+        if (shape.type === 'line') {
+            // Distance from point to line segment
+            const A = {x: shape.props.x1, y: shape.props.y1};
+            const B = {x: shape.props.x2, y: shape.props.y2};
+            const dist = this.distToSegment(pt, A, B);
+            return dist < tolerance;
+        }
+        if (shape.type === 'rect') {
+            return pt.x >= shape.props.x && pt.x <= shape.props.x + shape.props.w &&
+                   pt.y >= shape.props.y && pt.y <= shape.props.y + shape.props.h;
+        }
+        if (shape.type === 'circle') {
+            const d = Utils.dist(pt, {x: shape.props.cx, y: shape.props.cy});
+            return Math.abs(d - shape.props.r) < tolerance;
+        }
+        return false;
+    }
+
+    distToSegment(p, v, w) {
+        const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
+        if (l2 === 0) return Utils.dist(p, v);
+        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Utils.dist(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) });
+    }
+
+    finishDrawing() {
+        const start = this.toolState.start;
+        const end = this.toolState.current;
+        let newShape = null;
+
+        if (this.currentTool === 'line') {
+            if (Utils.dist(start, end) < 1) { this.toolState = {}; return; }
+            newShape = new Geometry('line', { x1: start.x, y1: start.y, x2: end.x, y2: end.y });
+        } else if (this.currentTool === 'rect') {
+            const w = end.x - start.x;
+            const h = end.y - start.y;
+            if (Math.abs(w) < 1 || Math.abs(h) < 1) { this.toolState = {}; return; }
+            newShape = new Geometry('rect', { x: start.x, y: start.y, w: w, h: h });
+        } else if (this.currentTool === 'circle') {
+            const r = Utils.dist(start, end);
+            if (r < 1) { this.toolState = {}; return; }
+            newShape = new Geometry('circle', { cx: start.x, cy: start.y, r: r });
+        }
+
+        if (newShape) {
+            this.shapes.push(newShape);
+            this.saveState();
+            this.updateInfo();
+            this.showToast(`${this.currentTool.toUpperCase()} created`);
+        }
+        
+        this.toolState = {};
+        this.setTool('select'); // Auto-switch back to select
+    }
+
+    deleteSelection() {
+        if (!this.selection) return;
+        this.shapes = this.shapes.filter(s => s !== this.selection);
+        this.selection = null;
+        this.saveState();
+        this.updatePropertiesPanel();
+        this.updateInfo();
+        this.render();
+        this.showToast("Deleted");
+    }
+
+    // --- History (Undo/Redo) ---
+    saveState() {
+        // Remove any redo states
+        if (this.historyStep < this.history.length - 1) {
+            this.history = this.history.slice(0, this.historyStep + 1);
+        }
+        // Deep copy shapes
+        const state = JSON.stringify(this.shapes);
+        this.history.push(state);
+        this.historyStep++;
+        
+        // Limit history size
+        if (this.history.length > 50) {
+            this.history.shift();
+            this.historyStep--;
+        }
+    }
+
+    undo() {
+        if (this.historyStep > 0) {
+            this.historyStep--;
+            this.shapes = JSON.parse(this.history[this.historyStep]);
+            this.selection = null;
+            this.render();
+            this.updatePropertiesPanel();
+            this.updateInfo();
+            this.showToast("Undo");
+        }
+    }
+
+    redo() {
+        if (this.historyStep < this.history.length - 1) {
+            this.historyStep++;
+            this.shapes = JSON.parse(this.history[this.historyStep]);
+            this.selection = null;
+            this.render();
+            this.updatePropertiesPanel();
+            this.updateInfo();
+            this.showToast("Redo");
+        }
+    }
+
+    // --- File Operations ---
+    file: {
+        new: () => {
+            if(confirm("Clear all drawings?")) {
+                app.shapes = [];
+                app.saveState();
+                app.render();
+                app.updateInfo();
+            }
+        },
+        save: () => {
+            const data = JSON.stringify(app.shapes, null, 2);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'drawing.json';
+            a.click();
+            app.showToast("File Saved");
+        },
+        load: (input) => {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    app.shapes = JSON.parse(e.target.result);
+                    app.saveState();
+                    app.render();
+                    app.updateInfo();
+                    app.showToast("File Loaded");
+                } catch (err) {
+                    alert("Invalid file format");
+                }
+            };
+            reader.readAsText(file);
+        }
+    }
+
+    // --- Rendering ---
+    render() {
+        // Clear
+        this.ctx.fillStyle = '#121212';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Grid
+        if (this.showGrid) this.drawGrid();
+
+        // Axes
+        this.drawAxes();
+
+        // Shapes
+        this.shapes.forEach(s => this.drawShape(s));
+
+        // Selection Highlight
+        if (this.selection) {
+            this.drawSelection(this.selection);
+        }
+
+        // Tool Preview (Rubber banding)
+        if (this.toolState.active) {
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.setLineDash([5, 5]);
+            this.ctx.lineWidth = 1;
+            const start = this.toolState.start;
+            const curr = this.toolState.current;
+            
+            if (this.currentTool === 'line') {
+                this.drawLine(start.x, start.y, curr.x, curr.y);
+            } else if (this.currentTool === 'rect') {
+                this.drawRect(start.x, start.y, curr.x - start.x, curr.y - start.y);
+            } else if (this.currentTool === 'circle') {
+                const r = Utils.dist(start, curr);
+                this.drawCircle(start.x, start.y, r);
+            }
+            this.ctx.restore();
+        }
+    }
+
+    drawGrid() {
+        const step = this.gridSize * this.camera.zoom;
+        if (step < 5) return; // Too dense
+
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = '#2a2a2a';
+        this.ctx.lineWidth = 1;
+
+        // Calculate visible range
+        const startX = Math.floor((-this.camera.x) / step) * step + this.camera.x;
+        const startY = Math.floor((-this.camera.y) / step) * step + this.camera.y;
+
+        for (let x = startX; x < this.canvas.width; x += step) {
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+        }
+        for (let y = startY; y < this.canvas.height; y += step) {
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+        }
+        this.ctx.stroke();
+
+        // Major lines every 5 units
+        const majorStep = step * 5;
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = '#333333';
+        for (let x = startX; x < this.canvas.width; x += majorStep) {
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+        }
+        for (let y = startY; y < this.canvas.height; y += majorStep) {
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+        }
+        this.ctx.stroke();
+    }
+
+    drawAxes() {
+        const origin = this.worldToScreen(0, 0);
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = '#444';
+        this.ctx.lineWidth = 1;
+        // X Axis
+        this.ctx.moveTo(0, origin.y);
+        this.ctx.lineTo(this.canvas.width, origin.y);
+        // Y Axis
+        this.ctx.moveTo(origin.x, 0);
+        this.ctx.lineTo(origin.x, this.canvas.height);
+        this.ctx.stroke();
+    }
+
+    drawShape(s) {
+        this.ctx.save();
+        this.ctx.strokeStyle = s.color;
+        this.ctx.lineWidth = s.lineWidth / this.camera.zoom; // Keep line width constant visually
+        this.ctx.lineCap = 'round';
+
+        if (s.type === 'line') {
+            this.drawLine(s.props.x1, s.props.y1, s.props.x2, s.props.y2);
+        } else if (s.type === 'rect') {
+            this.drawRect(s.props.x, s.props.y, s.props.w, s.props.h);
+        } else if (s.type === 'circle') {
+            this.drawCircle(s.props.cx, s.props.cy, s.props.r);
+        }
+        this.ctx.restore();
+    }
+
+    drawLine(x1, y1, x2, y2) {
+        const p1 = this.worldToScreen(x1, y1);
+        const p2 = this.worldToScreen(x2, y2);
+        this.ctx.beginPath();
+        this.ctx.moveTo(p1.x, p1.y);
+        this.ctx.lineTo(p2.x, p2.y);
+        this.ctx.stroke();
+    }
+
+    drawRect(x, y, w, h) {
+        const p = this.worldToScreen(x, y);
+        const wScaled = w * this.camera.zoom;
+        const hScaled = h * this.camera.zoom;
+        this.ctx.strokeRect(p.x, p.y, wScaled, hScaled);
+    }
+
+    drawCircle(cx, cy, r) {
+        const p = this.worldToScreen(cx, cy);
+        const rScaled = r * this.camera.zoom;
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, rScaled, 0, Math.PI * 2);
+        this.ctx.stroke();
+    }
+
+    drawSelection(s) {
+        this.ctx.save();
+        this.ctx.strokeStyle = '#007acc';
+        this.ctx.lineWidth = 2 / this.camera.zoom;
+        this.ctx.setLineDash([5, 5]);
+        
+        // Draw bounding box or outline
+        if (s.type === 'line') {
+            this.drawLine(s.props.x1, s.props.y1, s.props.x2, s.props.y2);
+            // Draw endpoints
+            const p1 = this.worldToScreen(s.props.x1, s.props.y1);
+            const p2 = this.worldToScreen(s.props.x2, s.props.y2);
+            this.ctx.fillStyle = '#007acc';
+            this.ctx.fillRect(p1.x-3, p1.y-3, 6, 6);
+            this.ctx.fillRect(p2.x-3, p2.y-3, 6, 6);
+        } else if (s.type === 'rect') {
+            this.drawRect(s.props.x, s.props.y, s.props.w, s.props.h);
+        } else if (s.type === 'circle') {
+            this.drawCircle(s.props.cx, s.props.cy, s.props.r);
+        }
+        this.ctx.restore();
+    }
+
+    // --- UI Helpers ---
+    togglePanel(side) {
+        const panel = document.getElementById(`${side}-panel`);
+        const btn = document.getElementById(`${side}-toggle`);
+        panel.classList.toggle('collapsed');
+        btn.textContent = panel.classList.contains('collapsed') ? (side==='left'?'›':'‹') : (side==='left'?'‹':'›');
+        setTimeout(() => this.render(), 200); // Wait for transition
+    }
+
+    toggleGrid() {
+        this.showGrid = !this.showGrid;
+        document.getElementById('btn-grid').classList.toggle('active', this.showGrid);
+        document.getElementById('info-grid').textContent = this.showGrid ? "On" : "Off";
+        this.render();
+    }
+
+    toggleSnap() {
+        this.snapEnabled = !this.snapEnabled;
+        document.getElementById('btn-snap').classList.toggle('active', this.snapEnabled);
+        this.showToast(`Snap: ${this.snapEnabled ? 'ON' : 'OFF'}`);
+    }
+
+    resetView() {
+        this.camera = { x: this.canvas.width/2, y: this.canvas.height/2, zoom: 1 };
+        this.render();
+        this.updateInfo();
+    }
+
+    updatePropertiesPanel() {
+        const container = document.getElementById('properties-list');
+        const countSpan = document.getElementById('prop-count');
+        
+        if (!this.selection) {
+            container.innerHTML = '<div style="color:var(--text-dim); font-style:italic;">No selection</div>';
+            countSpan.textContent = '';
+            return;
+        }
+
+        countSpan.textContent = `(1)`;
+        let html = `
+            <div class="property-row"><label>Type:</label><span>${this.selection.type.toUpperCase()}</span></div>
+            <div class="property-row"><label>ID:</label><span style="font-size:10px; color:#666">${this.selection.id.toFixed(0)}</span></div>
+        `;
+
+        if (this.selection.type === 'line') {
+            html += this.propInput('X1', this.selection.props.x1, v => this.selection.props.x1 = parseFloat(v));
+            html += this.propInput('Y1', this.selection.props.y1, v => this.selection.props.y1 = parseFloat(v));
+            html += this.propInput('X2', this.selection.props.x2, v => this.selection.props.x2 = parseFloat(v));
+            html += this.propInput('Y2', this.selection.props.y2, v => this.selection.props.y2 = parseFloat(v));
+        } else if (this.selection.type === 'rect') {
+            html += this.propInput('X', this.selection.props.x, v => this.selection.props.x = parseFloat(v));
+            html += this.propInput('Y', this.selection.props.y, v => this.selection.props.y = parseFloat(v));
+            html += this.propInput('W', this.selection.props.w, v => this.selection.props.w = parseFloat(v));
+            html += this.propInput('H', this.selection.props.h, v => this.selection.props.h = parseFloat(v));
+        } else if (this.selection.type === 'circle') {
+            html += this.propInput('CX', this.selection.props.cx, v => this.selection.props.cx = parseFloat(v));
+            html += this.propInput('CY', this.selection.props.cy, v => this.selection.props.cy = parseFloat(v));
+            html += this.propInput('Radius', this.selection.props.r, v => this.selection.props.r = parseFloat(v));
+        }
+
+        // Color Picker
+        html += `
+            <div class="property-row" style="margin-top:15px; border-top:1px solid #333; paddingTop:10px;">
+                <label>Color:</label>
+                <input type="color" value="${this.selection.color}" onchange="app.selection.color=this.value; app.saveState(); app.render();">
+            </div>
+        `;
+
+        container.innerHTML = html;
+    }
+
+    propInput(label, val, setter) {
+        return `
+            <div class="property-row">
+                <label>${label}:</label>
+                <input type="number" step="0.1" value="${val.toFixed(2)}" 
+                    onchange="${setter.toString().replace('setter', 'app.selection.props.'+label.toLowerCase())}(this.value); app.saveState(); app.render();">
+            </div>
+        `;
+    }
+
+    updateInfo() {
+        document.getElementById('info-count').textContent = this.shapes.length;
+        document.getElementById('info-zoom').textContent = Math.round(this.camera.zoom * 100) + '%';
+    }
+
+    updateStatus(msg) {
+        document.getElementById('status-msg').textContent = msg;
+    }
+
+    showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.style.opacity = 1;
+        setTimeout(() => t.style.opacity = 0, 2000);
+    }
+}
+
+// Initialize App
+const app = new CADApp();
+
+</script>
+</body>
+</html>
