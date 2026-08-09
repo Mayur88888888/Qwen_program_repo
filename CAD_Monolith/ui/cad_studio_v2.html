@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD Studio V2 - Professional</title>
+    <style>
+        :root {
+            --bg-dark: #1e1e1e;
+            --bg-panel: #252526;
+            --bg-header: #333333;
+            --accent: #007acc;
+            --text-main: #cccccc;
+            --text-muted: #858585;
+            --border: #3e3e42;
+            --grid-major: #4a4a4a;
+            --grid-minor: #2a2a2a;
+            --highlight: #0e639c;
+            --selection: #00ff88;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; }
+
+        /* Header */
+        header { height: 40px; background: var(--bg-header); display: flex; align-items: center; padding: 0 15px; border-bottom: 1px solid var(--border); justify-content: space-between; }
+        .logo { font-weight: bold; color: white; letter-spacing: 1px; }
+        .menu-bar { display: flex; gap: 15px; font-size: 13px; }
+        .menu-item { cursor: pointer; padding: 5px 8px; border-radius: 3px; }
+        .menu-item:hover { background: var(--highlight); color: white; }
+
+        /* Main Layout */
+        .workspace { display: flex; flex: 1; position: relative; overflow: hidden; }
+        
+        /* Sidebars */
+        .sidebar { width: 250px; background: var(--bg-panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: width 0.2s; position: relative; z-index: 10; }
+        .sidebar.collapsed { width: 0; overflow: hidden; border: none; }
+        .sidebar.right { border-right: none; border-left: 1px solid var(--border); }
+        
+        .panel-header { padding: 10px; font-weight: 600; font-size: 12px; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .collapse-btn { cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 3px; }
+        .collapse-btn:hover { background: var(--border); color: white; }
+
+        .tool-group { padding: 10px; border-bottom: 1px solid var(--border); }
+        .tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        .tool-btn { aspect-ratio: 1; background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-main); border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: all 0.2s; }
+        .tool-btn:hover { background: var(--highlight); color: white; border-color: var(--highlight); }
+        .tool-btn.active { background: var(--accent); color: white; border-color: #009aff; box-shadow: inset 0 0 5px rgba(0,0,0,0.3); }
+
+        /* Canvas Area */
+        .canvas-container { flex: 1; position: relative; background: #111; overflow: hidden; cursor: crosshair; }
+        canvas { display: block; }
+        
+        /* Floating Controls */
+        .view-cube { position: absolute; top: 20px; right: 20px; width: 80px; height: 80px; background: rgba(0,0,0,0.5); border-radius: 8px; pointer-events: none; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-weight: bold; border: 1px solid var(--border); }
+        
+        /* Command Line */
+        .command-line { height: 140px; background: var(--bg-panel); border-top: 1px solid var(--border); display: flex; flex-direction: column; }
+        .cmd-input-area { display: flex; padding: 5px; background: var(--bg-dark); border-bottom: 1px solid var(--border); }
+        .cmd-prompt { padding: 8px 10px; color: var(--accent); font-family: monospace; }
+        #cmdInput { flex: 1; background: transparent; border: none; color: white; font-family: monospace; outline: none; font-size: 14px; }
+        .cmd-history { flex: 1; overflow-y: auto; padding: 5px 10px; font-family: monospace; font-size: 12px; }
+        .cmd-entry { margin-bottom: 2px; color: var(--text-muted); }
+        .cmd-entry.error { color: #f48771; }
+        .cmd-entry.system { color: var(--accent); }
+
+        /* Properties Panel */
+        .prop-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; font-size: 12px; border-bottom: 1px solid var(--border); }
+        .prop-label { color: var(--text-muted); }
+        .prop-value { background: var(--bg-dark); border: 1px solid var(--border); color: white; padding: 2px 5px; border-radius: 3px; width: 80px; text-align: right; }
+        .prop-value:focus { border-color: var(--accent); outline: none; }
+
+        /* Overlays */
+        .overlay-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); padding: 20px; border-radius: 8px; color: white; pointer-events: none; opacity: 0; transition: opacity 0.3s; text-align: center; }
+        .overlay-msg.visible { opacity: 1; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">CAD STUDIO <span style="font-weight:normal; font-size:12px; opacity:0.7">V2.0</span></div>
+    <div class="menu-bar">
+        <div class="menu-item" onclick="app.file.new()">File</div>
+        <div class="menu-item" onclick="app.file.open()">Open</div>
+        <div class="menu-item" onclick="app.file.save()">Save</div>
+        <div class="menu-item" onclick="app.ui.toggleGrid()">View</div>
+        <div class="menu-item" onclick="app.help()">Help</div>
+    </div>
+    <div style="font-size:12px; color:var(--text-muted)" id="coords">X: 0.00 Y: 0.00</div>
+</header>
+
+<div class="workspace">
+    <!-- Left Sidebar: Tools -->
+    <div class="sidebar" id="leftPanel">
+        <div class="panel-header">
+            <span>Draw & Modify</span>
+            <span class="collapse-btn" onclick="app.ui.togglePanel('left')">◀</span>
+        </div>
+        
+        <div class="tool-group">
+            <div style="font-size:10px; color:var(--text-muted); margin-bottom:5px;">DRAWING</div>
+            <div class="tool-grid">
+                <button class="tool-btn active" id="btn-select" title="Select (V)" onclick="app.tools.activate('select')">↖</button>
+                <button class="tool-btn" id="btn-line" title="Line (L)" onclick="app.tools.activate('line')">/</button>
+                <button class="tool-btn" id="btn-rect" title="Rectangle (R)" onclick="app.tools.activate('rect')">□</button>
+                <button class="tool-btn" id="btn-circle" title="Circle (C)" onclick="app.tools.activate('circle')">○</button>
+                <button class="tool-btn" id="btn-arc" title="Arc (A)" onclick="app.tools.activate('arc')">⌒</button>
+                <button class="tool-btn" id="btn-poly" title="Polyline (P)" onclick="app.tools.activate('polyline')">∑</button>
+            </div>
+        </div>
+
+        <div class="tool-group">
+            <div style="font-size:10px; color:var(--text-muted); margin-bottom:5px;">MODIFY</div>
+            <div class="tool-grid">
+                <button class="tool-btn" title="Move (M)" onclick="app.tools.activate('move')">✥</button>
+                <button class="tool-btn" title="Copy (CO)" onclick="app.tools.activate('copy')">⧉</button>
+                <button class="tool-btn" title="Rotate (RO)" onclick="app.tools.activate('rotate')">⟳</button>
+                <button class="tool-btn" title="Scale (SC)" onclick="app.tools.activate('scale')">⤢</button>
+                <button class="tool-btn" title="Trim (TR)" onclick="app.tools.activate('trim')">✂</button>
+                <button class="tool-btn" title="Offset (O)" onclick="app.tools.activate('offset')">⇔</button>
+            </div>
+        </div>
+
+        <div class="tool-group">
+            <div style="font-size:10px; color:var(--text-muted); margin-bottom:5px;">3D MODELING</div>
+            <div class="tool-grid">
+                <button class="tool-btn" title="Box" onclick="app.log('3D Box tool placeholder')">📦</button>
+                <button class="tool-btn" title="Sphere" onclick="app.log('3D Sphere tool placeholder')">🔮</button>
+                <button class="tool-btn" title="Cylinder" onclick="app.log('3D Cylinder tool placeholder')">🛢️</button>
+                <button class="tool-btn" title="Extrude" onclick="app.log('Extrude tool placeholder')">⬆️</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Center: Canvas -->
+    <div class="canvas-container" id="canvasContainer">
+        <canvas id="mainCanvas"></canvas>
+        <div class="view-cube">TOP</div>
+        <div id="toast" class="overlay-msg">Command Executed</div>
+    </div>
+
+    <!-- Right Sidebar: Properties -->
+    <div class="sidebar right collapsed" id="rightPanel">
+        <div class="panel-header">
+            <span>Properties</span>
+            <span class="collapse-btn" onclick="app.ui.togglePanel('right')">▶</span>
+        </div>
+        <div id="propContent">
+            <div class="prop-row">
+                <span class="prop-label">Type</span>
+                <span class="prop-value" id="propType">-</span>
+            </div>
+            <div class="prop-row">
+                <span class="prop-label">Layer</span>
+                <span class="prop-value" id="propLayer">0</span>
+            </div>
+            <div class="prop-row">
+                <span class="prop-label">Color</span>
+                <input type="color" class="prop-value" id="propColor" style="height:24px; padding:0;" onchange="app.properties.update('color', this.value)">
+            </div>
+            <div class="prop-row">
+                <span class="prop-label">Length/Area</span>
+                <span class="prop-value" id="propValue">-</span>
+            </div>
+            <div style="padding:10px; font-size:11px; color:var(--text-muted); text-align:center;">
+                Select an object to edit properties
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Command Line -->
+<div class="command-line">
+    <div class="cmd-input-area">
+        <div class="cmd-prompt">Command:</div>
+        <input type="text" id="cmdInput" placeholder="Type command (LINE, CIRCLE, ERASE)..." autocomplete="off">
+    </div>
+    <div class="cmd-history" id="cmdHistory">
+        <div class="cmd-entry system">CAD Studio V2 initialized. Type 'HELP' for commands.</div>
+    </div>
+</div>
+
+<script>
+/**
+ * CAD Studio V2 - Core Logic
+ * Fixed architecture, robust state management, and error handling.
+ */
+
+const CONSTANTS = {
+    GRID_SPACING: 50,
+    GRID_MAJOR: 250,
+    SNAP_DIST: 15,
+    COLORS: {
+        gridMinor: '#2a2a2a',
+        gridMajor: '#4a4a4a',
+        axisX: '#ff4444',
+        axisY: '#44ff44',
+        selection: '#00ff88',
+        preview: 'rgba(0, 122, 204, 0.5)',
+        defaultShape: '#cccccc'
+    }
+};
+
+class CADApp {
+    constructor() {
+        this.canvas = document.getElementById('mainCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.container = document.getElementById('canvasContainer');
+        
+        // State
+        this.features = []; // Stored geometry
+        this.selection = []; // Selected feature IDs
+        this.hoveredId = null;
+        
+        this.camera = { x: 0, y: 0, zoom: 1 };
+        this.isPanning = false;
+        this.lastMouse = { x: 0, y: 0 };
+        
+        this.toolState = {
+            current: 'select',
+            active: false,
+            startPoint: null,
+            points: [],
+            preview: null
+        };
+
+        this.settings = {
+            snap: true,
+            grid: true,
+            ortho: false
+        };
+
+        this.init();
+    }
+
+    init() {
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        
+        // Input Handlers
+        this.canvas.addEventListener('mousedown', e => this.handleMouseDown(e));
+        this.canvas.addEventListener('mousemove', e => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseup', e => this.handleMouseUp(e));
+        this.canvas.addEventListener('wheel', e => this.handleWheel(e), { passive: false });
+        this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Keyboard
+        window.addEventListener('keydown', e => this.handleKeyboard(e));
+        
+        // Command Line
+        const cmdInput = document.getElementById('cmdInput');
+        cmdInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                this.command.execute(cmdInput.value);
+                cmdInput.value = '';
+            }
+        });
+
+        // Start Loop
+        this.loop();
+        
+        // Add sample data
+        this.features.push({ id: 1, type: 'line', x1: 100, y1: 100, x2: 400, y2: 100, color: '#fff' });
+        this.features.push({ id: 2, type: 'rect', x: 200, y: 200, w: 150, h: 100, color: '#aaa' });
+        this.features.push({ id: 3, type: 'circle', cx: 500, cy: 300, r: 80, color: '#ccc' });
+    }
+
+    resize() {
+        this.canvas.width = this.container.clientWidth;
+        this.canvas.height = this.container.clientHeight;
+        this.draw();
+    }
+
+    // --- Coordinate Systems ---
+    screenToWorld(sx, sy) {
+        return {
+            x: (sx - this.camera.x) / this.camera.zoom,
+            y: (sy - this.camera.y) / this.camera.zoom
+        };
+    }
+
+    worldToScreen(wx, wy) {
+        return {
+            x: wx * this.camera.zoom + this.camera.x,
+            y: wy * this.camera.zoom + this.camera.y
+        };
+    }
+
+    snap(point) {
+        if (!this.settings.snap) return point;
+        const grid = CONSTANTS.GRID_SPACING;
+        const x = Math.round(point.x / grid) * grid;
+        const y = Math.round(point.y / grid) * grid;
+        
+        // Simple snap to grid for now. Could extend to snap to endpoints
+        if (Math.abs(x - point.x) < CONSTANTS.SNAP_DIST && Math.abs(y - point.y) < CONSTANTS.SNAP_DIST) {
+            return { x, y };
+        }
+        return point;
+    }
+
+    // --- Interaction Handlers ---
+    handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const world = this.screenToWorld(mx, my);
+
+        // Middle mouse or Shift+Left for Pan
+        if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+            this.isPanning = true;
+            this.lastMouse = { x: mx, y: my };
+            this.canvas.style.cursor = 'grabbing';
+            return;
+        }
+
+        if (e.button === 0) {
+            const snapped = this.snap(world);
+            this.tools.getCurrentTool().click(snapped, e);
+        }
+    }
+
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const world = this.screenToWorld(mx, my);
+
+        // Update Coordinates Display
+        document.getElementById('coords').innerText = `X: ${world.x.toFixed(2)} Y: ${world.y.toFixed(2)}`;
+
+        // Panning
+        if (this.isPanning) {
+            const dx = mx - this.lastMouse.x;
+            const dy = my - this.lastMouse.y;
+            this.camera.x += dx;
+            this.camera.y += dy;
+            this.lastMouse = { x: mx, y: my };
+            return;
+        }
+
+        // Tool Preview
+        const snapped = this.snap(world);
+        this.tools.getCurrentTool().move(snapped, e);
+
+        // Hover Detection (only in select mode)
+        if (this.toolState.current === 'select') {
+            this.checkHover(snapped);
+        }
+    }
+
+    handleMouseUp(e) {
+        if (e.button === 1 || e.shiftKey) {
+            this.isPanning = false;
+            this.canvas.style.cursor = 'crosshair';
+        } else if (e.button === 0) {
+            const rect = this.canvas.getBoundingClientRect();
+            const world = this.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+            this.tools.getCurrentTool().end(this.snap(world), e);
+        }
+    }
+
+    handleWheel(e) {
+        e.preventDefault();
+        const zoomSensitivity = 0.001;
+        const delta = -e.deltaY * zoomSensitivity;
+        const newZoom = Math.max(0.1, Math.min(10, this.camera.zoom * (1 + delta)));
+        
+        // Zoom towards mouse pointer
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        
+        const worldBefore = this.screenToWorld(mx, my);
+        this.camera.zoom = newZoom;
+        const worldAfter = this.screenToWorld(mx, my);
+        
+        this.camera.x += (worldAfter.x - worldBefore.x) * newZoom;
+        this.camera.y += (worldAfter.y - worldBefore.y) * newZoom;
+    }
+
+    handleKeyboard(e) {
+        // Shortcuts
+        if (e.target.tagName === 'INPUT') return; // Ignore if typing in command line
+        
+        const key = e.key.toLowerCase();
+        if (key === 'v' || key === 'escape') this.tools.activate('select');
+        if (key === 'l') this.tools.activate('line');
+        if (key === 'r') this.tools.activate('rect');
+        if (key === 'c') this.tools.activate('circle');
+        if (key === 'delete' || key === 'backspace') this.deleteSelection();
+        if (key === 'g') { this.settings.grid = !this.settings.grid; this.draw(); }
+        if (key === 's') { this.settings.snap = !this.settings.snap; this.toast(`Snap: ${this.settings.snap ? 'ON' : 'OFF'}`); }
+        if (key === 'z' && (e.ctrlKey || e.metaKey)) this.undo();
+    }
+
+    // --- Rendering ---
+    draw() {
+        // Clear
+        this.ctx.fillStyle = '#111';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        if (this.settings.grid) this.drawGrid();
+        this.drawAxes();
+        
+        // Draw Features
+        this.features.forEach(f => this.drawFeature(f));
+        
+        // Draw Selection
+        this.selection.forEach(id => {
+            const f = this.features.find(x => x.id === id);
+            if (f) this.drawSelectionHandles(f);
+        });
+
+        // Draw Preview (Rubber banding)
+        if (this.toolState.preview) {
+            this.ctx.strokeStyle = CONSTANTS.COLORS.preview;
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([5, 5]);
+            this.ctx.beginPath();
+            
+            const p = this.toolState.preview;
+            const start = this.worldToScreen(p.x1 ?? p.x ?? p.cx, p.y1 ?? p.y ?? p.cy);
+            const end = this.worldToScreen(p.x2 ?? p.x + p.w ?? p.cx + p.r, p.y2 ?? p.y + p.h ?? p.cy + p.r);
+            
+            this.ctx.moveTo(start.x, start.y);
+            if (p.type === 'line' || p.type === 'rect') {
+                this.ctx.lineTo(end.x, start.y);
+                this.ctx.lineTo(end.x, end.y);
+                this.ctx.lineTo(start.x, end.y);
+                this.ctx.closePath();
+            } else if (p.type === 'circle') {
+                // Approximate circle preview
+                const rScreen = (p.r || Math.hypot(end.x-start.x, end.y-start.y)) * this.camera.zoom;
+                this.ctx.arc(start.x, start.y, rScreen, 0, Math.PI*2);
+            } else {
+                this.ctx.lineTo(end.x, end.y);
+            }
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+        }
+    }
+
+    drawGrid() {
+        const spacing = CONSTANTS.GRID_SPACING * this.camera.zoom;
+        const offsetX = this.camera.x % spacing;
+        const offsetY = this.camera.y % spacing;
+
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = CONSTANTS.COLORS.gridMinor;
+        this.ctx.lineWidth = 1;
+
+        // Minor lines
+        for (let x = offsetX; x < this.canvas.width; x += spacing) {
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+        }
+        for (let y = offsetY; y < this.canvas.height; y += spacing) {
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+        }
+        this.ctx.stroke();
+
+        // Major lines
+        const majorSpacing = CONSTANTS.GRID_MAJOR * this.camera.zoom;
+        const majorOffsetX = this.camera.x % majorSpacing;
+        const majorOffsetY = this.camera.y % majorSpacing;
+
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = CONSTANTS.COLORS.gridMajor;
+        this.ctx.lineWidth = 1.5;
+        for (let x = majorOffsetX; x < this.canvas.width; x += majorSpacing) {
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+        }
+        for (let y = majorOffsetY; y < this.canvas.height; y += majorSpacing) {
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+        }
+        this.ctx.stroke();
+    }
+
+    drawAxes() {
+        const origin = this.worldToScreen(0, 0);
+        this.ctx.beginPath();
+        
+        // X Axis
+        this.ctx.strokeStyle = CONSTANTS.COLORS.axisX;
+        this.ctx.lineWidth = 2;
+        this.ctx.moveTo(0, origin.y);
+        this.ctx.lineTo(this.canvas.width, origin.y);
+        
+        // Y Axis
+        this.ctx.strokeStyle = CONSTANTS.COLORS.axisY;
+        this.ctx.moveTo(origin.x, 0);
+        this.ctx.lineTo(origin.x, this.canvas.height);
+        
+        this.ctx.stroke();
+    }
+
+    drawFeature(f) {
+        this.ctx.strokeStyle = f.color || CONSTANTS.COLORS.defaultShape;
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+
+        const s = (p) => this.worldToScreen(p.x, p.y);
+
+        if (f.type === 'line') {
+            const p1 = s({x: f.x1, y: f.y1});
+            const p2 = s({x: f.x2, y: f.y2});
+            this.ctx.moveTo(p1.x, p1.y);
+            this.ctx.lineTo(p2.x, p2.y);
+        } else if (f.type === 'rect') {
+            const tl = s({x: f.x, y: f.y});
+            const br = s({x: f.x + f.w, y: f.y + f.h});
+            this.ctx.rect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+        } else if (f.type === 'circle') {
+            const c = s({x: f.cx, y: f.cy});
+            this.ctx.arc(c.x, c.y, f.r * this.camera.zoom, 0, Math.PI * 2);
+        } else if (f.type === 'polyline' && f.points) {
+            if (f.points.length > 0) {
+                const p0 = s(f.points[0]);
+                this.ctx.moveTo(p0.x, p0.y);
+                for (let i = 1; i < f.points.length; i++) {
+                    const p = s(f.points[i]);
+                    this.ctx.lineTo(p.x, p.y);
+                }
+            }
+        }
+
+        this.ctx.stroke();
+    }
+
+    drawSelectionHandles(f) {
+        this.ctx.strokeStyle = CONSTANTS.COLORS.selection;
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([5, 3]);
+        
+        // Draw bounding box approximation
+        let minx=Infinity, miny=Infinity, maxx=-Infinity, maxy=-Infinity;
+        
+        if (f.type === 'line') { minx=Math.min(f.x1,f.x2); maxx=Math.max(f.x1,f.x2); miny=Math.min(f.y1,f.y2); maxy=Math.max(f.y1,f.y2); }
+        if (f.type === 'rect') { minx=f.x; maxx=f.x+f.w; miny=f.y; maxy=f.y+f.h; }
+        if (f.type === 'circle') { minx=f.cx-f.r; maxx=f.cx+f.r; miny=f.cy-f.r; maxy=f.cy+f.r; }
+
+        const tl = this.worldToScreen(minx, miny);
+        const br = this.worldToScreen(maxx, maxy);
+        
+        this.ctx.strokeRect(tl.x, tl.y, br.x-tl.x, br.y-tl.y);
+        this.ctx.setLineDash([]);
+
+        // Draw corner grips
+        this.ctx.fillStyle = CONSTANTS.COLORS.selection;
+        const grips = [
+            {x: tl.x, y: tl.y}, {x: br.x, y: tl.y},
+            {x: br.x, y: br.y}, {x: tl.x, y: br.y}
+        ];
+        grips.forEach(g => {
+            this.ctx.fillRect(g.x-4, g.y-4, 8, 8);
+        });
+    }
+
+    checkHover(point) {
+        // Simple hit detection
+        let found = null;
+        // Reverse iterate to select top-most
+        for (let i = this.features.length - 1; i >= 0; i--) {
+            const f = this.features[i];
+            if (this.isPointInFeature(point, f)) {
+                found = f.id;
+                break;
+            }
+        }
+        this.hoveredId = found;
+        this.canvas.style.cursor = found ? 'pointer' : 'crosshair';
+    }
+
+    isPointInFeature(p, f) {
+        const tol = 10 / this.camera.zoom; // Tolerance in world units
+        if (f.type === 'line') {
+            // Distance from point to line segment
+            const A = p.x - f.x1;
+            const B = p.y - f.y1;
+            const C = f.x2 - f.x1;
+            const D = f.y2 - f.y1;
+            const dot = A * C + B * D;
+            const lenSq = C * C + D * D;
+            let param = -1;
+            if (lenSq !== 0) param = dot / lenSq;
+            let xx, yy;
+            if (param < 0) { xx = f.x1; yy = f.y1; }
+            else if (param > 1) { xx = f.x2; yy = f.y2; }
+            else { xx = f.x1 + param * C; yy = f.y1 + param * D; }
+            const dx = p.x - xx;
+            const dy = p.y - yy;
+            return (dx * dx + dy * dy) < (tol * tol);
+        }
+        if (f.type === 'rect') {
+            return p.x >= f.x && p.x <= f.x + f.w && p.y >= f.y && p.y <= f.y + f.h;
+        }
+        if (f.type === 'circle') {
+            const dx = p.x - f.cx;
+            const dy = p.y - f.cy;
+            return (dx*dx + dy*dy) <= (f.r * f.r);
+        }
+        return false;
+    }
+
+    loop() {
+        this.draw();
+        requestAnimationFrame(() => this.loop());
+    }
+
+    // --- Tools System ---
+    tools = {
+        activate: (name) => {
+            app.toolState.current = name;
+            app.toolState.active = false;
+            app.toolState.points = [];
+            app.toolState.preview = null;
+            
+            // UI Update
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.getElementById(`btn-${name}`);
+            if (btn) btn.classList.add('active');
+            
+            app.command.log(`Tool: ${name.toUpperCase()}`);
+            if (name !== 'select') app.selection = []; // Clear selection when drawing
+        },
+        getCurrentTool: () => {
+            const name = app.toolState.current;
+            return {
+                move: (p, e) => {
+                    if (name === 'select') {
+                        if (app.isPanning) return;
+                        // No preview needed for select move unless dragging
+                    } else if (app.toolState.active && app.toolState.startPoint) {
+                        // Rubber banding
+                        let preview = { type: name };
+                        if (name === 'line' || name === 'rect') {
+                            preview.x1 = app.toolState.startPoint.x;
+                            preview.y1 = app.toolState.startPoint.y;
+                            preview.x2 = p.x;
+                            preview.y2 = p.y;
+                        } else if (name === 'circle') {
+                            preview.cx = app.toolState.startPoint.x;
+                            preview.cy = app.toolState.startPoint.y;
+                            preview.r = Math.hypot(p.x - preview.cx, p.y - preview.cy);
+                        }
+                        app.toolState.preview = preview;
+                    }
+                },
+                click: (p, e) => {
+                    if (name === 'select') {
+                        if (app.hoveredId) {
+                            if (!e.shiftKey) app.selection = []; // Clear unless shift
+                            if (!app.selection.includes(app.hoveredId)) app.selection.push(app.hoveredId);
+                            app.properties.show(app.hoveredId);
+                        } else {
+                            app.selection = [];
+                            app.properties.clear();
+                        }
+                    } else if (name === 'line' || name === 'rect' || name === 'circle') {
+                        if (!app.toolState.active) {
+                            app.toolState.active = true;
+                            app.toolState.startPoint = p;
+                        } else {
+                            // Finish drawing
+                            app.createFeature(name, app.toolState.startPoint, p);
+                            app.toolState.active = false;
+                            app.toolState.preview = null;
+                            if (name !== 'polyline') app.tools.activate('select'); // Auto-switch back
+                        }
+                    }
+                },
+                end: (p, e) => {
+                    // Handle drag-to-create logic if needed, currently using click-click
+                }
+            };
+        }
+    };
+
+    createFeature(type, p1, p2) {
+        const id = Date.now();
+        let feature = { id, type, color: '#fff' };
+        
+        if (type === 'line') {
+            feature.x1 = p1.x; feature.y1 = p1.y;
+            feature.x2 = p2.x; feature.y2 = p2.y;
+        } else if (type === 'rect') {
+            feature.x = Math.min(p1.x, p2.x);
+            feature.y = Math.min(p1.y, p2.y);
+            feature.w = Math.abs(p2.x - p1.x);
+            feature.h = Math.abs(p2.y - p1.y);
+        } else if (type === 'circle') {
+            feature.cx = p1.x; feature.cy = p1.y;
+            feature.r = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        }
+        
+        this.features.push(feature);
+        this.command.log(`Created ${type} #${id}`);
+        this.selection = [id];
+        this.properties.show(id);
+    }
+
+    deleteSelection() {
+        if (this.selection.length === 0) return;
+        this.features = this.features.filter(f => !this.selection.includes(f.id));
+        this.selection = [];
+        this.properties.clear();
+        this.command.log('Deleted selected objects');
+    }
+
+    undo() {
+        if (this.features.length > 0) {
+            this.features.pop();
+            this.command.log('Undo');
+        }
+    }
+
+    // --- Sub-Modules ---
+    command = {
+        execute: (input) => {
+            const parts = input.trim().split(' ');
+            const cmd = parts[0].toUpperCase();
+            app.command.log(`> ${input}`, 'system');
+            
+            switch(cmd) {
+                case 'LINE': app.tools.activate('line'); break;
+                case 'RECT': case 'RECTANGLE': app.tools.activate('rect'); break;
+                case 'CIRCLE': app.tools.activate('circle'); break;
+                case 'ERASE': case 'DELETE': app.deleteSelection(); break;
+                case 'HELP': 
+                    app.command.log('Commands: LINE, RECT, CIRCLE, ERASE, UNDO, CLEAR');
+                    break;
+                case 'CLEAR': 
+                    app.features = []; app.selection = []; 
+                    app.command.log('Canvas cleared');
+                    break;
+                default:
+                    app.command.log(`Unknown command: ${cmd}`, 'error');
+            }
+        },
+        log: (msg, type='info') => {
+            const hist = document.getElementById('cmdHistory');
+            const div = document.createElement('div');
+            div.className = `cmd-entry ${type}`;
+            div.textContent = msg;
+            hist.appendChild(div);
+            hist.scrollTop = hist.scrollHeight;
+            
+            // Limit history
+            while (hist.children.length > 100) hist.removeChild(hist.firstChild);
+        }
+    };
+
+    properties = {
+        show: (id) => {
+            const f = app.features.find(x => x.id === id);
+            if (!f) return;
+            document.getElementById('rightPanel').classList.remove('collapsed');
+            document.getElementById('propType').textContent = f.type.toUpperCase();
+            document.getElementById('propColor').value = f.color || '#ffffff';
+            
+            let val = '-';
+            if (f.type === 'line') val = Math.hypot(f.x2-f.x1, f.y2-f.y1).toFixed(2);
+            if (f.type === 'rect') val = (f.w * f.h).toFixed(2);
+            if (f.type === 'circle') val = (Math.PI * f.r * f.r).toFixed(2);
+            document.getElementById('propValue').textContent = val;
+        },
+        clear: () => {
+            document.getElementById('propType').textContent = '-';
+            document.getElementById('propValue').textContent = '-';
+        },
+        update: (key, value) => {
+            app.selection.forEach(id => {
+                const f = app.features.find(x => x.id === id);
+                if (f) f[key] = value;
+            });
+        }
+    };
+
+    file = {
+        save: () => {
+            const data = JSON.stringify(app.features);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'drawing.json';
+            a.click();
+            app.command.log('Drawing saved');
+        },
+        open: () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        app.features = JSON.parse(event.target.result);
+                        app.selection = [];
+                        app.command.log('Drawing loaded successfully');
+                    } catch (err) {
+                        app.command.log('Error parsing file: Corrupted JSON', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        },
+        new: () => {
+            if(confirm('Clear current drawing?')) {
+                app.features = [];
+                app.selection = [];
+                app.command.log('New drawing created');
+            }
+        }
+    };
+
+    ui = {
+        togglePanel: (side) => {
+            const el = document.getElementById(side === 'left' ? 'leftPanel' : 'rightPanel');
+            el.classList.toggle('collapsed');
+            setTimeout(() => app.resize(), 250); // Wait for transition
+        },
+        toggleGrid: () => {
+            app.settings.grid = !app.settings.grid;
+            app.toast(`Grid ${app.settings.grid ? 'ON' : 'OFF'}`);
+        }
+    };
+
+    toast: (msg) => {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('visible');
+        setTimeout(() => t.classList.remove('visible'), 2000);
+    },
+
+    log: (msg) => this.command.log(msg),
+    help: () => this.command.execute('HELP')
+}
+
+// Initialize
+const app = new CADApp();
+
+</script>
+</body>
+</html>

@@ -1,42 +1,53 @@
-# Examples
-# CAD_Monolith/ui/README_PRO.md
-# CAD_Monolith/ui/cad_pro.html
-
-# Build artifacts
-dist/
-build/
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
 *.o
 *.obj
-*.out
+dist/
+build/
+target/
 
 # Dependencies
-node_modules/
-venv/
 .venv/
-__pycache__/
-.mypy_cache/
-.pytest_cache/
-target/
-.gradle/
+venv/
+node_modules/
+.julia/
+.zig-cache/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*
 
 # Editors
 .vscode/
 .idea/
 *.swp
 *.swo
-*.tmp
 
-# System
+# System files
 .DS_Store
 Thumbs.db
-.env
-*.env.*
-*.log
 
 # Coverage
 coverage/
 htmlcov/
 .coverage
+
+# Python specific
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
 
 # Compressed files
 *.zip
@@ -61,3 +72,4 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+```
