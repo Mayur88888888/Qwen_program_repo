@@ -1,18 +1,1 @@
-```
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# Original rules preserved
-*.log
-```
+Nothing should be ignored in this case, as the added files are all source/config files (.md, .js, .html) with no build artifacts, dependencies, or temporary files present in the changes.
